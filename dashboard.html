@@ -13,13 +13,95 @@
         <img src="img/Sistema_antifraude_con_logo_CA-removebg-preview.png" alt="Sistema Antifraude" class="logo-navbar">
         <h2>SISTEMA <span>ANTIFRAUDIE</span></h2>
     </div>
+    <img src="img/Tecnologico_TESA-removebg-preview.png" alt="Tecnológico San Antonio Tesa" class="tecnologico-navbar">
 </div>
 
 <div class="dashboard">
-    <div class="dashboard-card">
-        <h3>Bienvenido, Usuario</h3>
-        <p>Plataforma de evaluación antifraude</p>
-        <button onclick="irExamen()" class="btn-primary">Iniciar Examen</button>
+    <div class="dashboard-content">
+        <div class="dashboard-card">
+            <h3>Bienvenido, Usuario</h3>
+            <span id="rol-usuario" class="rol-usuario"></span>
+            <p>Sistema de evaluación antifraude TESA</p>
+        </div>
+
+        <section class="examenes-panel" aria-labelledby="examenes-titulo">
+            <div class="panel-heading">
+                <div>
+                    <h2 id="examenes-titulo">Mis exámenes</h2>
+                    <p>Administra los exámenes disponibles para el sistema.</p>
+                </div>
+                <button type="button" class="btn-primary btn-add" onclick="mostrarFormularioExamen()">+ Agregar examen</button>
+            </div>
+
+            <form id="formulario-examen" class="formulario-examen" onsubmit="guardarExamen(event)" hidden>
+                <h3>Nuevo examen</h3>
+                <label for="nombre-examen">Nombre del examen</label>
+                <input type="text" id="nombre-examen" placeholder="Ej. Evaluación de seguridad" required>
+                <label for="materia-examen">Materia</label>
+                <input type="text" id="materia-examen" placeholder="Ej. Cultura general" required>
+                <label for="formato-examen">Formato del examen</label>
+                <select id="formato-examen" required>
+                    <option value="opcion-multiple">Opción múltiple</option>
+                    <option value="complexiva">Complexiva</option>
+                </select>
+                <label for="descripcion-examen">Descripción</label>
+                <textarea id="descripcion-examen" rows="3" placeholder="Describe brevemente el examen" required></textarea>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="ocultarFormularioExamen()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar examen</button>
+                </div>
+            </form>
+
+            <div id="lista-examenes" class="lista-examenes"></div>
+
+            <section id="editor-examen" class="editor-examen" hidden aria-labelledby="editor-titulo">
+                <div class="editor-heading">
+                    <div>
+                        <h3 id="editor-titulo">Editar examen</h3>
+                        <p id="editor-formato"></p>
+                    </div>
+                    <button type="button" class="btn-secondary" onclick="cerrarEditorExamen()">Cerrar</button>
+                </div>
+                <form id="formulario-pregunta" onsubmit="guardarPregunta(event)">
+                    <div id="campos-pregunta"></div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">Guardar pregunta</button>
+                    </div>
+                </form>
+                <div id="preguntas-guardadas" class="preguntas-guardadas"></div>
+            </section>
+
+            <section id="prueba-examen" class="prueba-examen" hidden aria-labelledby="prueba-titulo">
+                <div class="editor-heading">
+                    <div>
+                        <h3 id="prueba-titulo">Realizar examen</h3>
+                        <p id="prueba-formato"></p>
+                    </div>
+                    <button type="button" class="btn-secondary" onclick="cerrarPruebaSistema()">Cerrar</button>
+                </div>
+                <div id="preguntas-prueba" class="preguntas-prueba"></div>
+                <div class="camera-panel">
+                    <strong>Control de cámara</strong>
+                    <video id="camera-sistema" autoplay muted playsinline></video>
+                    <p id="camera-sistema-status">Inicia la prueba para activar la cámara.</p>
+                    <button type="button" class="btn-primary" onclick="iniciarPruebaSistema()">Iniciar prueba</button>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-primary" id="finalizar-prueba" onclick="finalizarPruebaSistema()" disabled>Entregar prueba</button>
+                </div>
+                <div id="resultado-prueba" class="resultado-prueba" hidden></div>
+            </section>
+
+            <section id="usuarios-panel" class="usuarios-panel" hidden aria-labelledby="usuarios-titulo">
+                <div class="panel-heading">
+                    <div>
+                        <h2 id="usuarios-titulo">Personas registradas</h2>
+                        <p>Usuarios que han ingresado correctamente al sistema.</p>
+                    </div>
+                </div>
+                <div id="lista-usuarios" class="lista-usuarios"></div>
+            </section>
+        </section>
     </div>
 </div>
 

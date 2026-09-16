@@ -6,17 +6,20 @@
 <title>Login - Sistema Antifraude</title>
 <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="login-page">
 
 <div class="login-container">
-    <div class="logo-header">
-        <img src="img/Sistema_antifraude_con_logo_CA-removebg-preview.png" alt="Sistema Antifraude" class="logo-principal">
-        <div class="logo-line"></div>
+    <div class="institutional-panel">
+        <img src="img/Tecnologico_TESA-removebg-preview.png" alt="Tecnológico San Antonio Tesa" class="tecnologico-logo">
+        <div class="logo-header">
+            <img src="img/Sistema_antifraude_con_logo_CA-removebg-preview.png" alt="Sistema Antifraude" class="logo-principal">
+            <div class="logo-line"></div>
+        </div>
     </div>
     
     <div class="login-card">
         <h2>Acceso al Sistema</h2>
-        <input type="text" id="usuario" placeholder="Usuario" autocomplete="off">
+        <input type="text" id="usuario" placeholder="Usuario o correo" autocomplete="username" required>
         <input type="password" id="password" placeholder="Contraseña">
         <button onclick="login()">Ingresar</button>
     </div>
