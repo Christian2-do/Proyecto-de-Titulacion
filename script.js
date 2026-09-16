@@ -1,11 +1,13 @@
-let cambiosPestana = 0;
 let indiceExamenEnEdicion = null;
 let indicePruebaActiva = null;
 let streamCamaraSistema = null;
 let pruebaIniciada = false;
+let cambiosPestana = 0;
+let movimientosCamara = 0;
+let monitoreoCamara = null;
 
 // LOGIN
-function login() {
+async function login() {
     let user = document.getElementById("usuario").value.trim().toLowerCase();
     let pass = document.getElementById("password").value;
     const dominioEstudiante = "@estud.tesa.edu.ec";
@@ -13,7 +15,7 @@ function login() {
     let rol;
 
     if (user === "admin") {
-        rol = "maestro";
+        rol = "admin";
     } else if (user.endsWith(dominioEstudiante)) {
         rol = "estudiante";
     } else if (user.endsWith(dominioMaestro)) {
@@ -23,13 +25,81 @@ function login() {
         return;
     }
 
-    if(pass === "1234") {
-        registrarAcceso(user, rol);
-        sessionStorage.setItem("sesionSistema", JSON.stringify({ correo: user, rol }));
-        window.location.href = "dashboard.html";
-    } else {
-        alert("❌ Credenciales incorrectas");
+    if (user === "admin") {
+        try {
+            const credencialAdmin = await firebaseAuth.signInWithEmailAndPassword("admin@tesa.edu.ec", pass);
+            await registrarUsuarioFirebase(credencialAdmin.user, "admin");
+            sessionStorage.setItem("sesionSistema", JSON.stringify({ correo: user, rol, uid: credencialAdmin.user.uid }));
+        } catch (error) {
+            if (pass !== "1234") {
+                alert("La contraseña del administrador no es correcta.");
+                return;
+            }
+            registrarAcceso(user, rol);
+            sessionStorage.setItem("sesionSistema", JSON.stringify({ correo: user, rol }));
+        }
+        window.location.href = "dashboard.html?v=7";
+        return;
     }
+
+    try {
+        const credencial = await autenticarCuentaFirebase(user, pass);
+        await registrarUsuarioFirebase(credencial.user, rol);
+        sessionStorage.setItem("sesionSistema", JSON.stringify({ correo: user, rol, uid: credencial.user.uid }));
+        window.location.href = "dashboard.html?v=7";
+    } catch (error) {
+        alert("No se pudo iniciar sesión. Verifica el correo, la contraseña y que Authentication esté habilitado en Firebase.");
+    }
+}
+
+async function autenticarCuentaFirebase(correo, password) {
+    try {
+        return await firebaseAuth.signInWithEmailAndPassword(correo, password);
+    } catch (error) {
+        if (error.code !== "auth/user-not-found" && error.code !== "auth/invalid-credential") throw error;
+        return firebaseAuth.createUserWithEmailAndPassword(correo, password);
+    }
+}
+
+async function registrarUsuarioFirebase(usuario, rol) {
+    const referencia = firebaseDb.collection("usuarios").doc(usuario.uid);
+    const existente = await referencia.get();
+    const ahora = firebase.firestore.FieldValue.serverTimestamp();
+    if (existente.exists) {
+        await referencia.update({ rol, ultimoAcceso: ahora, enLinea: true, cantidadAccesos: firebase.firestore.FieldValue.increment(1) });
+    } else {
+        await referencia.set({ correo: usuario.email, rol, primerAcceso: ahora, ultimoAcceso: ahora, enLinea: true, cantidadAccesos: 1 });
+    }
+}
+
+async function actualizarPresencia(enLinea) {
+    if (typeof firebaseDb === "undefined" || !firebaseAuth.currentUser) return;
+    await firebaseDb.collection("usuarios").doc(firebaseAuth.currentUser.uid).update({ enLinea, ultimaActividad: firebase.firestore.FieldValue.serverTimestamp() });
+}
+
+async function cargarEstadisticas() {
+    const panel = document.getElementById("estadisticas-panel");
+    if (!panel || !esAdministrador()) return;
+    panel.hidden = false;
+
+    let totalExamenes = obtenerExamenes().length;
+    let totalRegistrados = obtenerUsuarios().length;
+    let totalEnLinea = obtenerSesion().correo ? 1 : 0;
+
+    if (typeof firebaseDb !== "undefined" && firebaseAuth.currentUser) {
+        const [examenes, usuarios, enLinea] = await Promise.all([
+            firebaseDb.collection("examenes").get(),
+            firebaseDb.collection("usuarios").get(),
+            firebaseDb.collection("usuarios").where("enLinea", "==", true).get()
+        ]);
+        totalExamenes = examenes.size;
+        totalRegistrados = usuarios.size;
+        totalEnLinea = enLinea.size;
+    }
+
+    document.getElementById("total-examenes").textContent = totalExamenes;
+    document.getElementById("total-en-linea").textContent = totalEnLinea;
+    document.getElementById("total-registrados").textContent = totalRegistrados;
 }
 
 function registrarAcceso(correo, rol) {
@@ -57,20 +127,61 @@ function obtenerUsuarios() {
     return usuariosGuardados ? JSON.parse(usuariosGuardados) : [];
 }
 
-function cargarUsuarios() {
+async function cargarUsuarios() {
     const lista = document.getElementById("lista-usuarios");
-    if (!lista || !esMaestro()) return;
+    if (!lista || !esAdministrador()) return;
 
-    const usuarios = obtenerUsuarios();
+    let usuarios = obtenerUsuarios();
+    if (typeof firebaseDb !== "undefined" && firebaseAuth.currentUser) {
+        const snapshot = await firebaseDb.collection("usuarios").get();
+        usuarios = snapshot.docs.map((documento) => ({ id: documento.id, ...documento.data() }));
+    }
     lista.innerHTML = usuarios.length ? usuarios.map((usuario) => `
         <article class="usuario-item">
             <div>
                 <strong>${escaparHtml(usuario.correo)}</strong>
-                <span>${usuario.rol === "maestro" ? "Maestro" : "Estudiante"}</span>
+                <span>${usuario.rol === "admin" ? "Administrador" : usuario.rol === "maestro" ? "Maestro" : "Estudiante"}</span>
             </div>
             <p>${usuario.cantidadAccesos} acceso(s) | Último: ${new Date(usuario.ultimoAcceso).toLocaleString("es-EC")}</p>
         </article>
     `).join("") : "<p class=\"sin-preguntas\">Todavía no hay accesos registrados.</p>";
+}
+
+async function registrarPersona(event) {
+    event.preventDefault();
+    if (!esAdministrador()) {
+        alert("Solo el administrador puede registrar personas.");
+        return;
+    }
+    const correo = document.getElementById("correo-persona").value.trim().toLowerCase();
+    const rol = obtenerRolPorCorreo(correo);
+    const dominioValido = Boolean(rol);
+
+    if (!dominioValido) {
+        alert("El correo debe terminar en @estud.tesa.edu.ec o @tesa.edu.ec.");
+        return;
+    }
+    if (typeof firebaseDb === "undefined" || !firebaseAuth.currentUser) {
+        alert("La cuenta admin debe estar autenticada en Firebase. Activa Email/Password y vuelve a entrar como admin.");
+        return;
+    }
+
+    await firebaseDb.collection("usuariosPendientes").doc(correo).set({ correo, rol, agregadoPor: firebaseAuth.currentUser.uid, fechaRegistro: firebase.firestore.FieldValue.serverTimestamp() });
+    document.getElementById("formulario-usuario").reset();
+    alert("Persona registrada. Podrá crear su cuenta con ese correo institucional.");
+}
+
+function obtenerRolPorCorreo(correo) {
+    if (correo.endsWith("@estud.tesa.edu.ec")) return "estudiante";
+    if (correo.endsWith("@tesa.edu.ec")) return "maestro";
+    return "";
+}
+
+function actualizarRolPersona() {
+    const correo = document.getElementById("correo-persona").value.trim().toLowerCase();
+    const rol = obtenerRolPorCorreo(correo);
+    const selector = document.getElementById("rol-persona");
+    if (rol) selector.value = rol;
 }
 
 function obtenerSesion() {
@@ -79,7 +190,22 @@ function obtenerSesion() {
 }
 
 function esMaestro() {
-    return obtenerSesion().rol === "maestro";
+    return obtenerRolActual() === "maestro";
+}
+
+function esAdministrador() {
+    return obtenerRolActual() === "admin";
+}
+
+function obtenerRolActual() {
+    const sesion = obtenerSesion();
+    const vista = new URLSearchParams(window.location.search).get("vista");
+    if ((sesion.rol === "admin" || sesion.rol === "maestro") && (vista === "estudiante" || vista === "maestro")) return vista;
+    return sesion.rol;
+}
+
+function abrirVistaPrevia(rol) {
+    window.open(`dashboard.html?vista=${rol}`, "_blank");
 }
 
 // ADMINISTRACION DE EXAMENES
@@ -95,13 +221,19 @@ function obtenerExamenes() {
     return examenesActualizados;
 }
 
-function cargarExamenes() {
+async function cargarExamenes() {
     const lista = document.getElementById("lista-examenes");
     if (!lista) return;
 
     const maestro = esMaestro();
+    let examenes = obtenerExamenes();
+    if (typeof firebaseDb !== "undefined" && firebaseAuth.currentUser) {
+        const snapshot = await firebaseDb.collection("examenes").get();
+        examenes = snapshot.docs.map((documento) => ({ id: documento.id, ...documento.data() }));
+        localStorage.setItem("examenes", JSON.stringify(examenes));
+    }
     lista.innerHTML = "";
-    obtenerExamenes().forEach((examen, indice) => {
+    examenes.forEach((examen, indice) => {
         const tarjeta = document.createElement("article");
         tarjeta.className = "examen-item";
         tarjeta.innerHTML = `
@@ -144,7 +276,7 @@ function ocultarFormularioExamen() {
     formulario.hidden = true;
 }
 
-function guardarExamen(event) {
+async function guardarExamen(event) {
     event.preventDefault();
     const nuevoExamen = {
         nombre: document.getElementById("nombre-examen").value.trim(),
@@ -153,6 +285,10 @@ function guardarExamen(event) {
         descripcion: document.getElementById("descripcion-examen").value.trim()
     };
     const examenes = obtenerExamenes();
+    if (typeof firebaseDb !== "undefined" && firebaseAuth.currentUser) {
+        const referencia = await firebaseDb.collection("examenes").add(nuevoExamen);
+        nuevoExamen.id = referencia.id;
+    }
     examenes.push(nuevoExamen);
     localStorage.setItem("examenes", JSON.stringify(examenes));
     descargarExamen(nuevoExamen);
@@ -243,8 +379,11 @@ function finishTest(){if(!started)return;const questions=[...document.querySelec
     }, 1000);
 }
 
-function eliminarExamen(indiceParaEliminar) {
+async function eliminarExamen(indiceParaEliminar) {
     const examenes = obtenerExamenes();
+    if (typeof firebaseDb !== "undefined" && firebaseAuth.currentUser && examenes[indiceParaEliminar]?.id) {
+        await firebaseDb.collection("examenes").doc(examenes[indiceParaEliminar].id).delete();
+    }
     examenes.splice(indiceParaEliminar, 1);
     localStorage.setItem("examenes", JSON.stringify(examenes));
     if (indiceExamenEnEdicion === indiceParaEliminar) {
@@ -306,7 +445,7 @@ function renderizarCamposPregunta(formato, numeroPregunta = 1) {
     `;
 }
 
-function guardarPregunta(event) {
+async function guardarPregunta(event) {
     event.preventDefault();
     if (indiceExamenEnEdicion === null) return;
 
@@ -327,6 +466,9 @@ function guardarPregunta(event) {
 
     examen.preguntas = examen.preguntas || [];
     examen.preguntas.push(pregunta);
+    if (typeof firebaseDb !== "undefined" && firebaseAuth.currentUser && examen.id) {
+        await firebaseDb.collection("examenes").doc(examen.id).update({ preguntas: examen.preguntas });
+    }
     localStorage.setItem("examenes", JSON.stringify(examenes));
     document.getElementById("formulario-pregunta").reset();
     renderizarCamposPregunta(examen.formato, examen.preguntas.length + 1);
@@ -403,6 +545,7 @@ async function iniciarPruebaSistema() {
         clearTimeout(limiteCamara);
         document.getElementById("camera-sistema").srcObject = streamCamaraSistema;
         estado.textContent = "Cámara activa durante la prueba.";
+        iniciarMonitoreoCamara();
         habilitarPrueba();
     } catch (error) {
         clearTimeout(limiteCamara);
@@ -430,26 +573,94 @@ function finalizarPruebaSistema() {
 }
 
 function detenerCamaraSistema() {
+    clearInterval(monitoreoCamara);
+    monitoreoCamara = null;
     if (!streamCamaraSistema) return;
     streamCamaraSistema.getTracks().forEach((track) => track.stop());
     streamCamaraSistema = null;
 }
 
-if (window.location.pathname.includes("dashboard.html")) {
+function iniciarMonitoreoCamara() {
+    const video = document.getElementById("camera-sistema");
+    const canvas = document.createElement("canvas");
+    canvas.width = 32;
+    canvas.height = 24;
+    const contexto = canvas.getContext("2d", { willReadFrequently: true });
+    let imagenAnterior = null;
+    monitoreoCamara = setInterval(() => {
+        if (!streamCamaraSistema || video.readyState < 2) return;
+        contexto.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imagenActual = contexto.getImageData(0, 0, canvas.width, canvas.height).data;
+        if (imagenAnterior) {
+            let diferencia = 0;
+            for (let indice = 0; indice < imagenActual.length; indice += 4) diferencia += Math.abs(imagenActual[indice] - imagenAnterior[indice]);
+            if (diferencia / (imagenActual.length / 4) > 22) {
+                movimientosCamara += 1;
+                document.getElementById("camera-sistema-status").textContent = `Movimiento de cámara detectado (${movimientosCamara}). Mantén el dispositivo estable.`;
+            }
+        }
+        imagenAnterior = new Uint8ClampedArray(imagenActual);
+    }, 1000);
+}
+
+document.addEventListener("visibilitychange", () => {
+    if (!pruebaIniciada || document.getElementById("prueba-examen")?.hidden) return;
+    if (document.hidden) {
+        cambiosPestana += 1;
+        const estado = document.getElementById("camera-sistema-status");
+        if (estado) estado.textContent = `Cambio de pestaña detectado (${cambiosPestana}/3).`;
+        if (cambiosPestana >= 3) {
+            detenerCamaraSistema();
+            alert("Prueba bloqueada por salir de la pestaña tres veces.");
+            window.location.href = "index.html";
+        }
+    }
+});
+
+document.addEventListener("copy", bloquearPortapapeles);
+document.addEventListener("cut", bloquearPortapapeles);
+document.addEventListener("paste", bloquearPortapapeles);
+document.addEventListener("contextmenu", (event) => {
+    if (pruebaIniciada && !document.getElementById("prueba-examen")?.hidden) event.preventDefault();
+});
+
+function bloquearPortapapeles(event) {
+    if (pruebaIniciada && !document.getElementById("prueba-examen")?.hidden) event.preventDefault();
+}
+
+if (window.location.pathname.includes("dashboard.html") || window.location.pathname.endsWith("/dashboard")) {
     const sesion = obtenerSesion();
+    const rolActual = obtenerRolActual();
     const rolElemento = document.getElementById("rol-usuario");
     const tituloPanel = document.querySelector("#examenes-titulo");
     const descripcionPanel = document.querySelector(".panel-heading p");
-    if (rolElemento) rolElemento.textContent = sesion.rol === "maestro" ? "Maestro" : "Estudiante";
-    if (sesion.rol !== "maestro") {
+    const vistaPrevia = document.getElementById("vista-previa-panel");
+    if (rolElemento) rolElemento.textContent = rolActual === "admin" ? "Administrador" : rolActual === "maestro" ? "Maestro" : "Estudiante";
+    if (vistaPrevia && sesion.rol === "admin" && !new URLSearchParams(window.location.search).has("vista")) vistaPrevia.hidden = false;
+    if (rolActual !== "maestro") {
         document.querySelector(".btn-add").hidden = true;
         document.getElementById("formulario-examen").hidden = true;
         if (tituloPanel) tituloPanel.textContent = "Exámenes disponibles";
         if (descripcionPanel) descripcionPanel.textContent = "Selecciona un examen para rendirlo dentro del sistema.";
-    } else {
+    }
+    if (rolActual === "admin") {
         document.getElementById("usuarios-panel").hidden = false;
         cargarUsuarios();
+        cargarEstadisticas();
     }
     cargarExamenes();
+    if (typeof firebaseAuth !== "undefined") {
+        firebaseAuth.onAuthStateChanged(async () => {
+            await actualizarPresencia(true);
+            cargarExamenes();
+            cargarUsuarios();
+            cargarEstadisticas();
+        });
+    }
 }
+
+window.addEventListener("beforeunload", () => actualizarPresencia(false));
+document.addEventListener("visibilitychange", () => {
+    if (document.getElementById("prueba-examen")?.hidden) actualizarPresencia(!document.hidden);
+});
 

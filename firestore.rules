@@ -1,0 +1,36 @@
+rules_version='2'
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function autenticado() {
+      return request.auth != null;
+    }
+
+    function maestro() {
+      return autenticado() && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == "maestro";
+    }
+
+    function administrador() {
+      return autenticado() && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == "admin";
+    }
+
+    match /usuarios/{uid} {
+      allow create, update: if autenticado() && request.auth.uid == uid;
+      allow read: if administrador() || maestro() || (autenticado() && request.auth.uid == uid);
+    }
+
+    match /usuariosPendientes/{correo} {
+      allow read, write: if administrador();
+    }
+
+    match /examenes/{examenId} {
+      allow read: if autenticado();
+      allow create, update, delete: if maestro();
+    }
+
+    match /resultados/{resultadoId} {
+      allow create: if autenticado() && request.resource.data.estudianteUid == request.auth.uid;
+      allow read: if maestro() || (autenticado() && resource.data.estudianteUid == request.auth.uid);
+    }
+  }
+}

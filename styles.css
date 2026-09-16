@@ -257,6 +257,79 @@ button:active {
     text-transform: uppercase;
 }
 
+.estadisticas-panel {
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(243, 198, 35, 0.35);
+    border-radius: 16px;
+}
+
+.estadisticas-panel[hidden] {
+    display: none;
+}
+
+.estadisticas-panel h2 {
+    color: #ffffff;
+    font-size: 20px;
+    margin-bottom: 16px;
+}
+
+.estadisticas-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.estadistica-item {
+    padding: 18px 12px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.18);
+    border-radius: 10px;
+}
+
+.estadistica-item strong {
+    display: block;
+    color: #f3c623;
+    font-size: 30px;
+}
+
+.estadistica-item span {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 12px;
+}
+
+.vista-previa-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 20px 24px;
+    background: rgba(123, 44, 131, 0.18);
+    border: 1px solid rgba(243, 198, 35, 0.35);
+    border-radius: 16px;
+}
+
+.vista-previa-panel[hidden] {
+    display: none;
+}
+
+.vista-previa-panel h2 {
+    color: #ffffff;
+    font-size: 20px;
+}
+
+.vista-previa-panel p {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 13px;
+    margin-top: 5px;
+}
+
+.vista-previa-actions {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
 .usuarios-panel {
     margin-top: 24px;
     padding: 24px;
@@ -648,6 +721,37 @@ button:active {
 
 /* ========== RESPONSIVE ========== */
 @media (max-width: 768px) {
+    .dashboard-content {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-card {
+        max-width: none;
+    }
+
+    .panel-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .panel-heading button {
+        width: 100%;
+    }
+
+    .examen-item,
+    .usuario-item {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .examen-actions {
+        width: 100%;
+    }
+
+    .examen-actions button {
+        flex: 1;
+    }
+
     .login-container {
         flex-direction: column;
         gap: 15px;
@@ -695,6 +799,19 @@ button:active {
 }
 
 @media (max-width: 480px) {
+    .vista-previa-panel {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .vista-previa-actions {
+        flex-direction: column;
+    }
+
+    .estadisticas-grid {
+        grid-template-columns: 1fr;
+    }
+
     .logo-principal {
         max-width: 160px;
     }

@@ -24,6 +24,35 @@
             <p>Sistema de evaluación antifraude TESA</p>
         </div>
 
+        <section id="estadisticas-panel" class="estadisticas-panel" hidden aria-labelledby="estadisticas-titulo">
+            <h2 id="estadisticas-titulo">Resumen del sistema</h2>
+            <div class="estadisticas-grid">
+                <article class="estadistica-item">
+                    <strong id="total-examenes">0</strong>
+                    <span>Pruebas subidas</span>
+                </article>
+                <article class="estadistica-item">
+                    <strong id="total-en-linea">0</strong>
+                    <span>Personas en línea</span>
+                </article>
+                <article class="estadistica-item">
+                    <strong id="total-registrados">0</strong>
+                    <span>Personas registradas</span>
+                </article>
+            </div>
+        </section>
+
+        <section id="vista-previa-panel" class="vista-previa-panel" hidden aria-labelledby="vista-previa-titulo">
+            <div>
+                <h2 id="vista-previa-titulo">Vista previa</h2>
+                <p>Revisa cómo verá el sistema cada tipo de usuario.</p>
+            </div>
+            <div class="vista-previa-actions">
+                <button type="button" class="btn-secondary" onclick="abrirVistaPrevia('estudiante')">Vista estudiante</button>
+                <button type="button" class="btn-secondary" onclick="abrirVistaPrevia('maestro')">Vista maestro</button>
+            </div>
+        </section>
+
         <section class="examenes-panel" aria-labelledby="examenes-titulo">
             <div class="panel-heading">
                 <div>
@@ -99,12 +128,29 @@
                         <p>Usuarios que han ingresado correctamente al sistema.</p>
                     </div>
                 </div>
+                <form id="formulario-usuario" class="formulario-examen" onsubmit="registrarPersona(event)">
+                    <h3>Agregar estudiante o maestro</h3>
+                    <label for="correo-persona">Correo institucional</label>
+                    <input type="email" id="correo-persona" placeholder="persona@estud.tesa.edu.ec o persona@tesa.edu.ec" oninput="actualizarRolPersona()" required>
+                    <label for="rol-persona">Rol</label>
+                    <select id="rol-persona" required>
+                        <option value="estudiante">Estudiante</option>
+                        <option value="maestro">Maestro</option>
+                    </select>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">Registrar persona</button>
+                    </div>
+                </form>
                 <div id="lista-usuarios" class="lista-usuarios"></div>
             </section>
         </section>
     </div>
 </div>
 
-<script src="script.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js?v=10"></script>
+<script src="script.js?v=10"></script>
 </body>
 </html>
