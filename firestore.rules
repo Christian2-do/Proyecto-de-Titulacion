@@ -6,16 +6,54 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function correoAdminVerificado() {
+      return autenticado()
+        && request.auth.token.email == "christianandrango23.24@gmail.com"
+        && request.auth.token.email_verified == true;
+    }
+
+    function rolPermitido(rol) {
+      return (rol == "admin" && correoAdminVerificado())
+        || (rol == "maestro"
+          && request.auth.token.email is string
+          && request.auth.token.email.matches("^[^@]+@tesa[.]edu[.]ec$"))
+        || (rol == "estudiante"
+          && request.auth.token.email is string
+          && request.auth.token.email.matches("^[^@]+@estud[.]tesa[.]edu[.]ec$"));
+    }
+
     function maestro() {
-      return autenticado() && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == "maestro";
+      return correoAdminVerificado()
+        || (autenticado()
+          && request.auth.token.email is string
+          && request.auth.token.email.matches("^[^@]+@tesa[.]edu[.]ec$"));
     }
 
     function administrador() {
-      return autenticado() && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == "admin";
+      return correoAdminVerificado();
     }
 
     match /usuarios/{uid} {
-      allow create, update: if autenticado() && request.auth.uid == uid;
+      allow create: if autenticado()
+        && request.auth.uid == uid
+        && request.resource.data.correo == request.auth.token.email
+        && rolPermitido(request.resource.data.rol)
+        && request.resource.data.keys().hasOnly([
+          "correo", "rol", "primerAcceso", "ultimoAcceso", "enLinea", "cantidadAccesos"
+        ]);
+      allow update: if autenticado()
+        && request.auth.uid == uid
+        && request.resource.data.correo == resource.data.correo
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "ultimoAcceso", "enLinea", "cantidadAccesos", "ultimaActividad"
+        ])
+        || (correoAdminVerificado()
+          && request.auth.uid == uid
+          && request.resource.data.correo == request.auth.token.email
+          && request.resource.data.rol == "admin"
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "rol", "ultimoAcceso", "enLinea", "cantidadAccesos", "ultimaActividad"
+          ]));
       allow read: if administrador() || maestro() || (autenticado() && request.auth.uid == uid);
     }
 

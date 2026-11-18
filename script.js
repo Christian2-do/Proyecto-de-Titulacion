@@ -5,50 +5,60 @@ let pruebaIniciada = false;
 let cambiosPestana = 0;
 let movimientosCamara = 0;
 let monitoreoCamara = null;
+const CORREO_ADMINISTRADOR = "christianandrango23.24@gmail.com";
 
 // LOGIN
 async function login() {
-    let user = document.getElementById("usuario").value.trim().toLowerCase();
-    let pass = document.getElementById("password").value;
-    const dominioEstudiante = "@estud.tesa.edu.ec";
-    const dominioMaestro = "@tesa.edu.ec";
-    let rol;
+    const user = document.getElementById("usuario").value.trim().toLowerCase();
+    const pass = document.getElementById("password").value;
+    const rol = obtenerRolPorCorreo(user);
+    sessionStorage.removeItem("sesionSistema");
 
-    if (user === "admin") {
-        rol = "admin";
-    } else if (user.endsWith(dominioEstudiante)) {
-        rol = "estudiante";
-    } else if (user.endsWith(dominioMaestro)) {
-        rol = "maestro";
-    } else {
+    if (!rol) {
         alert("Usuario o correo no autorizado");
-        return;
-    }
-
-    if (user === "admin") {
-        try {
-            const credencialAdmin = await firebaseAuth.signInWithEmailAndPassword("admin@tesa.edu.ec", pass);
-            await registrarUsuarioFirebase(credencialAdmin.user, "admin");
-            sessionStorage.setItem("sesionSistema", JSON.stringify({ correo: user, rol, uid: credencialAdmin.user.uid }));
-        } catch (error) {
-            if (pass !== "1234") {
-                alert("La contraseña del administrador no es correcta.");
-                return;
-            }
-            registrarAcceso(user, rol);
-            sessionStorage.setItem("sesionSistema", JSON.stringify({ correo: user, rol }));
-        }
-        window.location.href = "dashboard.html?v=7";
         return;
     }
 
     try {
         const credencial = await autenticarCuentaFirebase(user, pass);
+        if (rol === "admin" && !credencial.user.emailVerified) {
+            await credencial.user.sendEmailVerification();
+            await firebaseAuth.signOut();
+            alert("Te enviamos un correo para verificar la cuenta administradora. Verifícalo y vuelve a iniciar sesión.");
+            return;
+        }
+        if (rol === "admin") await credencial.user.getIdToken(true);
         await registrarUsuarioFirebase(credencial.user, rol);
         sessionStorage.setItem("sesionSistema", JSON.stringify({ correo: user, rol, uid: credencial.user.uid }));
-        window.location.href = "dashboard.html?v=7";
+        window.location.href = "dashboard.html?v=11";
     } catch (error) {
-        alert("No se pudo iniciar sesión. Verifica el correo, la contraseña y que Authentication esté habilitado en Firebase.");
+        alert(`No se pudo iniciar sesión o crear la cuenta. Verifica el correo y la contraseña. ${error.message || error.code || ""}`);
+    }
+}
+
+async function restablecerContrasena() {
+    const campoCorreo = document.getElementById("usuario");
+    const correo = campoCorreo.value.trim().toLowerCase();
+    if (!correo) {
+        alert("Escribe tu correo en Nombre de usuario.");
+        campoCorreo.focus();
+        return;
+    }
+
+    try {
+        await firebaseAuth.sendPasswordResetEmail(correo);
+        alert("Si existe una cuenta con ese correo, recibirás instrucciones para restablecer la contraseña.");
+    } catch (error) {
+        if (error.code === "auth/user-not-found") {
+            alert("Si existe una cuenta con ese correo, recibirás instrucciones para restablecer la contraseña.");
+            return;
+        }
+        const mensaje = error.code === "auth/invalid-email"
+            ? "El correo no tiene un formato válido."
+            : error.code === "auth/too-many-requests"
+                ? "Hubo demasiados intentos. Espera un momento y vuelve a intentarlo."
+                : `No se pudo enviar el correo de restablecimiento. ${error.message || error.code || ""}`;
+        alert(mensaje);
     }
 }
 
@@ -66,7 +76,13 @@ async function registrarUsuarioFirebase(usuario, rol) {
     const existente = await referencia.get();
     const ahora = firebase.firestore.FieldValue.serverTimestamp();
     if (existente.exists) {
-        await referencia.update({ rol, ultimoAcceso: ahora, enLinea: true, cantidadAccesos: firebase.firestore.FieldValue.increment(1) });
+        const actualizacion = {
+            ultimoAcceso: ahora,
+            enLinea: true,
+            cantidadAccesos: firebase.firestore.FieldValue.increment(1)
+        };
+        if (rol === "admin") actualizacion.rol = "admin";
+        await referencia.update(actualizacion);
     } else {
         await referencia.set({ correo: usuario.email, rol, primerAcceso: ahora, ultimoAcceso: ahora, enLinea: true, cantidadAccesos: 1 });
     }
@@ -172,6 +188,7 @@ async function registrarPersona(event) {
 }
 
 function obtenerRolPorCorreo(correo) {
+    if (correo === CORREO_ADMINISTRADOR) return "admin";
     if (correo.endsWith("@estud.tesa.edu.ec")) return "estudiante";
     if (correo.endsWith("@tesa.edu.ec")) return "maestro";
     return "";

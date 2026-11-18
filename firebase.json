@@ -4,6 +4,10 @@
     "ignore": [
       "firebase.json",
       ".firebaserc",
+      "**/.git/**",
+      "**/.firebase/**",
+      "**/.vscode/**",
+      "**/.*",
       "**/node_modules/**"
     ],
     "cleanUrls": true
