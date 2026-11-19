@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prueba - Sistema Antifraude</title>
+<link rel="stylesheet" href="styles.css?v=20">
+</head>
+<body class="pagina-prueba">
+<header class="navbar prueba-navbar">
+    <div class="nav-logo">
+        <img src="img/Sistema_antifraude_con_logo_CA-removebg-preview.png" alt="Sistema Antifraude" class="logo-navbar">
+        <h2>SISTEMA <span>ANTIFRAUDIE</span></h2>
+    </div>
+    <a class="btn-secondary volver-panel" href="dashboard.html">Volver al panel</a>
+</header>
+
+<main class="prueba-pagina">
+    <p id="estado-carga-prueba" class="estado-mensaje" role="status" aria-live="polite">Cargando prueba...</p>
+    <section id="prueba-examen" class="prueba-examen" hidden aria-labelledby="prueba-titulo">
+        <div class="prueba-pagina-heading">
+            <div>
+                <h1 id="prueba-titulo"></h1>
+                <p id="prueba-formato"></p>
+            </div>
+            <p class="aviso-supervision">La cámara solo supervisa en esta pestaña. No se graba ni se guarda video; el informe registra respuestas y eventos de supervisión.</p>
+        </div>
+        <div class="prueba-layout">
+            <section class="prueba-contenido" aria-label="Preguntas del examen">
+                <div id="preguntas-prueba" class="preguntas-prueba"></div>
+                <div id="navegacion-preguntas" class="navegacion-preguntas" hidden>
+                    <button type="button" class="btn-secondary" id="pregunta-anterior" onclick="navegarPreguntaPrueba(-1)">Anterior</button>
+                    <span id="contador-preguntas"></span>
+                    <button type="button" class="btn-secondary" id="pregunta-siguiente" onclick="navegarPreguntaPrueba(1)">Siguiente</button>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-primary" id="finalizar-prueba" onclick="finalizarPruebaSistema()" disabled>Entregar prueba</button>
+                </div>
+                <div id="resultado-prueba" class="resultado-prueba" hidden></div>
+            </section>
+            <aside class="camera-panel" aria-label="Supervisión de la prueba">
+                <strong>Cámara y supervisión</strong>
+                <video id="camera-sistema" autoplay muted playsinline></video>
+                <p id="camera-sistema-status">La cámara se activará al entrar en la prueba.</p>
+                <p id="estado-supervision" class="estado-supervision" role="status" aria-live="polite">No se almacena video.</p>
+                <p id="temporizador-prueba" class="temporizador-prueba" hidden></p>
+                <p id="aviso-cambio-pestana" class="aviso-cambio-pestana" role="alert" aria-live="assertive" tabindex="-1" hidden></p>
+            </aside>
+        </div>
+    </section>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js?v=12"></script>
+<script src="script.js?v=17"></script>
+</body>
+</html>

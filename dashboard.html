@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard - Sistema Antifraude</title>
-<link rel="stylesheet" href="styles.css?v=14">
+<link rel="stylesheet" href="styles.css?v=20">
 </head>
 <body>
 
@@ -13,7 +13,24 @@
         <img src="img/Sistema_antifraude_con_logo_CA-removebg-preview.png" alt="Sistema Antifraude" class="logo-navbar">
         <h2>SISTEMA <span>ANTIFRAUDIE</span></h2>
     </div>
-    <img src="img/Tecnologico_TESA-removebg-preview.png" alt="Tecnológico San Antonio Tesa" class="tecnologico-navbar">
+    <div class="navbar-actions">
+        <img src="img/Tecnologico_TESA-removebg-preview.png" alt="Tecnológico San Antonio Tesa" class="tecnologico-navbar">
+        <div class="cuenta-menu">
+            <button type="button" id="cuenta-menu-boton" class="btn-secondary" aria-expanded="false" aria-controls="cuenta-menu-panel" onclick="alternarMenuCuenta(event)">Cuenta</button>
+            <div id="cuenta-menu-panel" class="cuenta-menu-panel" hidden>
+                <strong id="cuenta-correo"></strong>
+                <span id="cuenta-rol"></span>
+                <form id="formulario-perfil" onsubmit="guardarPerfil(event)">
+                    <label for="perfil-nombre">Nombre completo</label>
+                    <input type="text" id="perfil-nombre" autocomplete="name" maxlength="120" required>
+                    <button type="submit" class="btn-secondary">Guardar perfil</button>
+                    <p id="estado-perfil" role="status" aria-live="polite"></p>
+                </form>
+                <button type="button" class="btn-secondary" onclick="mostrarCalificaciones()">Mis calificaciones</button>
+                <button type="button" class="btn-cerrar-sesion" onclick="cerrarSesion()">Cerrar sesión</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="dashboard">
@@ -23,6 +40,18 @@
             <span id="rol-usuario" class="rol-usuario"></span>
             <p>Sistema de evaluación antifraude TESA</p>
         </div>
+
+        <section id="calificaciones-panel" class="calificaciones-panel" hidden aria-labelledby="calificaciones-titulo">
+            <div class="panel-heading">
+                <div>
+                    <h2 id="calificaciones-titulo">Mis calificaciones</h2>
+                    <p>Resultados de tus pruebas realizadas.</p>
+                </div>
+                <button type="button" class="btn-secondary" onclick="cerrarCalificaciones()">Cerrar</button>
+            </div>
+            <p id="estado-calificaciones" class="estado-mensaje" role="status" aria-live="polite"></p>
+            <div id="lista-calificaciones" class="lista-calificaciones"></div>
+        </section>
 
         <section id="estadisticas-panel" class="estadisticas-panel" hidden aria-labelledby="estadisticas-titulo">
             <h2 id="estadisticas-titulo">Resumen del sistema</h2>
@@ -61,6 +90,7 @@
                 </div>
                 <button type="button" class="btn-primary btn-add" onclick="mostrarFormularioExamen()">+ Agregar examen</button>
             </div>
+            <p id="estado-examenes" class="estado-mensaje" role="status" aria-live="polite" hidden></p>
 
             <form id="formulario-examen" class="formulario-examen" onsubmit="guardarExamen(event)" hidden>
                 <h3>Nuevo examen</h3>
@@ -75,6 +105,13 @@
                 </select>
                 <label for="descripcion-examen">Descripción</label>
                 <textarea id="descripcion-examen" rows="3" placeholder="Describe brevemente el examen" required></textarea>
+                <h4>Disponibilidad y tiempo (opcional)</h4>
+                <label for="abre-examen">Abrir examen</label>
+                <input type="datetime-local" id="abre-examen">
+                <label for="cierra-examen">Cerrar examen</label>
+                <input type="datetime-local" id="cierra-examen">
+                <label for="limite-examen">Límite de tiempo en minutos</label>
+                <input type="number" id="limite-examen" min="1" max="480" placeholder="Sin límite">
                 <div class="form-actions">
                     <button type="button" class="btn-secondary" onclick="ocultarFormularioExamen()">Cancelar</button>
                     <button type="submit" class="btn-primary">Guardar examen</button>
@@ -82,6 +119,18 @@
             </form>
 
             <div id="lista-examenes" class="lista-examenes"></div>
+
+            <section id="reportes-panel" class="reportes-panel" hidden aria-labelledby="reportes-titulo">
+                <div class="panel-heading">
+                    <div>
+                        <h2 id="reportes-titulo">Reportes de pruebas</h2>
+                        <p>Informes en tiempo real con respuestas, supervisión y calificaciones pendientes.</p>
+                    </div>
+                    <button type="button" class="btn-secondary" onclick="cargarReportesProfesor()">Actualizar</button>
+                </div>
+                <p id="estado-reportes" class="estado-mensaje" role="status" aria-live="polite"></p>
+                <div id="lista-reportes" class="lista-reportes"></div>
+            </section>
 
             <section id="editor-examen" class="editor-examen" hidden aria-labelledby="editor-titulo">
                 <div class="editor-heading">
@@ -91,34 +140,35 @@
                     </div>
                     <button type="button" class="btn-secondary" onclick="cerrarEditorExamen()">Cerrar</button>
                 </div>
-                <form id="formulario-pregunta" onsubmit="guardarPregunta(event)">
+                <form id="configuracion-examen" class="configuracion-examen" onsubmit="guardarConfiguracionExamen(event)">
+                    <h4>Disponibilidad y límite</h4>
+                    <p>Sin fechas, el examen queda disponible siempre. Guardar también asigna el examen a tu perfil.</p>
+                    <label for="editar-abre-examen">Abrir examen</label>
+                    <input type="datetime-local" id="editar-abre-examen">
+                    <label for="editar-cierra-examen">Cerrar examen</label>
+                    <input type="datetime-local" id="editar-cierra-examen">
+                    <label for="editar-limite-examen">Límite de tiempo en minutos</label>
+                    <input type="number" id="editar-limite-examen" min="1" max="480" placeholder="Sin límite">
+                    <div class="form-actions">
+                        <button type="submit" class="btn-secondary">Guardar configuración</button>
+                    </div>
+                </form>
+                <div class="editor-acciones">
+                    <button type="button" id="boton-agregar-pregunta" class="btn-primary" onclick="mostrarFormularioPregunta()">+ Agregar pregunta</button>
+                </div>
+                <form id="formulario-pregunta" onsubmit="guardarPregunta(event)" hidden>
+                    <label for="tipo-pregunta">Tipo de pregunta</label>
+                    <select id="tipo-pregunta" onchange="actualizarTipoPregunta()" required>
+                        <option value="opcion-multiple">Opción múltiple</option>
+                        <option value="complexiva">Complexiva / respuesta abierta</option>
+                    </select>
                     <div id="campos-pregunta"></div>
                     <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="cancelarPregunta()">Cancelar</button>
                         <button type="submit" class="btn-primary">Guardar pregunta</button>
                     </div>
                 </form>
                 <div id="preguntas-guardadas" class="preguntas-guardadas"></div>
-            </section>
-
-            <section id="prueba-examen" class="prueba-examen" hidden aria-labelledby="prueba-titulo">
-                <div class="editor-heading">
-                    <div>
-                        <h3 id="prueba-titulo">Realizar examen</h3>
-                        <p id="prueba-formato"></p>
-                    </div>
-                    <button type="button" class="btn-secondary" onclick="cerrarPruebaSistema()">Cerrar</button>
-                </div>
-                <div id="preguntas-prueba" class="preguntas-prueba"></div>
-                <div class="camera-panel">
-                    <strong>Control de cámara</strong>
-                    <video id="camera-sistema" autoplay muted playsinline></video>
-                    <p id="camera-sistema-status">Inicia la prueba para activar la cámara.</p>
-                    <button type="button" class="btn-primary" onclick="iniciarPruebaSistema()">Iniciar prueba</button>
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn-primary" id="finalizar-prueba" onclick="finalizarPruebaSistema()" disabled>Entregar prueba</button>
-                </div>
-                <div id="resultado-prueba" class="resultado-prueba" hidden></div>
             </section>
 
             <section id="usuarios-panel" class="usuarios-panel" hidden aria-labelledby="usuarios-titulo">
@@ -150,7 +200,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=10"></script>
-<script src="script.js?v=12"></script>
+<script src="firebase-config.js?v=12"></script>
+<script src="script.js?v=17"></script>
 </body>
 </html>

@@ -22,11 +22,11 @@ body {
     position: fixed;
     inset: 0;
     background:
-        linear-gradient(135deg, rgba(7, 27, 51, 0.38), rgba(36, 20, 63, 0.5)),
+        linear-gradient(135deg, rgba(7, 27, 51, 0.64), rgba(18, 63, 103, 0.66), rgba(36, 20, 63, 0.72)),
         url("img/tesa-fondo.png") center / cover no-repeat;
-    filter: blur(2px);
+    filter: blur(14px);
     z-index: -1;
-    transform: scale(1.03);
+    transform: scale(1.08);
 }
 
 /* ========== LOGO ORIGINAL ========== */
@@ -38,6 +38,11 @@ body {
     gap: 34px;
     width: min(42%, 430px);
     padding: 30px 20px;
+    background: rgba(255, 255, 255, 0.84);
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    border-radius: 24px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.24);
+    backdrop-filter: blur(12px);
     animation: fadeInDown 0.8s ease;
 }
 
@@ -83,6 +88,62 @@ body {
     position: sticky;
     top: 0;
     z-index: 1000;
+}
+
+.navbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.cuenta-menu {
+    position: relative;
+}
+
+.cuenta-menu > button {
+    width: auto;
+    margin: 0;
+}
+
+.cuenta-menu-panel {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    z-index: 1001;
+    display: grid;
+    gap: 10px;
+    min-width: 230px;
+    padding: 16px;
+    color: #ffffff;
+    background: #102943;
+    border: 1px solid rgba(243, 198, 35, 0.45);
+    border-radius: 12px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
+}
+
+.cuenta-menu-panel[hidden] {
+    display: none;
+}
+
+.cuenta-menu-panel span {
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 13px;
+}
+
+.cuenta-menu-panel button {
+    width: 100%;
+    margin: 0;
+}
+
+.btn-cerrar-sesion {
+    background: rgba(190, 52, 65, 0.35);
+    color: #ffffff;
+    box-shadow: none;
+}
+
+.btn-cerrar-sesion:hover {
+    background: rgba(190, 52, 65, 0.65);
+    box-shadow: none;
 }
 
 .tecnologico-navbar {
@@ -277,6 +338,61 @@ button:active {
 .dashboard-card p {
     margin-bottom: 30px;
     color: rgba(255, 255, 255, 0.8);
+}
+
+.calificaciones-panel {
+    grid-column: 1 / -1;
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(243, 198, 35, 0.35);
+    border-radius: 16px;
+}
+
+.calificaciones-panel[hidden] {
+    display: none;
+}
+
+.lista-calificaciones {
+    display: grid;
+    gap: 10px;
+}
+
+.calificacion-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px;
+    color: #ffffff;
+    background: rgba(0, 0, 0, 0.18);
+    border-left: 3px solid #f3c623;
+    border-radius: 8px;
+}
+
+.calificacion-item strong,
+.calificacion-item span {
+    display: block;
+}
+
+.calificacion-item span,
+.calificacion-item time {
+    margin-top: 5px;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 12px;
+}
+
+.estado-mensaje {
+    margin: 12px 0;
+    color: #ffe98a;
+    font-size: 14px;
+}
+
+.estado-mensaje.estado-error {
+    color: #ffd9dc;
+}
+
+.estado-mensaje[hidden] {
+    display: none;
 }
 
 .rol-usuario {
@@ -622,6 +738,35 @@ button:active {
     margin-top: 6px;
 }
 
+.editor-acciones {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 20px;
+}
+
+.editor-acciones button {
+    width: auto;
+    margin: 0;
+}
+
+#formulario-pregunta > label {
+    display: block;
+    margin: 0 0 6px;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 13px;
+}
+
+#tipo-pregunta {
+    width: 100%;
+    margin-bottom: 14px;
+    padding: 12px 15px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    background: #244a6d;
+    color: #ffffff;
+    font-size: 14px;
+}
+
 #campos-pregunta {
     display: grid;
     gap: 10px;
@@ -734,6 +879,13 @@ button:active {
         opacity: 1;
         transform: translateY(0);
     }
+
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    transform: none;
 }
 
 @keyframes fadeInDown {
@@ -795,7 +947,7 @@ button:active {
     .institutional-panel {
         gap: 18px;
         width: 100%;
-        padding: 0;
+        padding: 24px 18px;
     }
 
     .tecnologico-logo {
@@ -829,6 +981,20 @@ button:active {
     .tecnologico-navbar {
         height: 38px;
         max-width: 130px;
+    }
+
+    .navbar-actions {
+        gap: 10px;
+    }
+
+    .cuenta-menu-panel {
+        min-width: 210px;
+    }
+
+    .calificacion-item {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
     }
 }
 
@@ -900,6 +1066,34 @@ button:active {
     gap: 14px;
 }
 
+.navegacion-preguntas {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.navegacion-preguntas[hidden] {
+    display: none;
+}
+
+.navegacion-preguntas button {
+    width: auto;
+    margin: 0;
+}
+
+.prueba-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(250px, 310px);
+    align-items: start;
+    gap: 20px;
+}
+
+.prueba-contenido {
+    min-width: 0;
+}
+
 .pregunta-prueba {
     color: #ffffff;
     background: rgba(255, 255, 255, 0.08);
@@ -930,11 +1124,26 @@ button:active {
 }
 
 .camera-panel {
-    margin-top: 20px;
+    position: sticky;
+    top: 96px;
     padding: 18px;
     background: #17233d;
     color: #ffffff;
     border-radius: 10px;
+}
+
+.aviso-cambio-pestana {
+    margin-top: 12px;
+    padding: 12px;
+    color: #fff3c0;
+    background: rgba(190, 52, 65, 0.35);
+    border: 1px solid rgba(255, 217, 220, 0.65);
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.aviso-cambio-pestana[hidden] {
+    display: none;
 }
 
 .camera-panel video {
@@ -952,6 +1161,16 @@ button:active {
     margin-top: 8px;
 }
 
+@media (max-width: 768px) {
+    .prueba-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .camera-panel {
+        position: static;
+    }
+}
+
 .resultado-prueba {
     margin-top: 18px;
     padding: 16px;
@@ -963,4 +1182,267 @@ button:active {
 
 .sin-preguntas {
     color: rgba(255, 255, 255, 0.75);
+}
+
+.pagina-prueba {
+    color: #ffffff;
+    background: linear-gradient(135deg, #071b33 0%, #123f67 55%, #24143f 100%);
+}
+
+.prueba-navbar {
+    position: sticky;
+}
+
+.prueba-navbar .btn-secondary {
+    width: auto;
+    margin: 0;
+}
+
+.prueba-pagina {
+    width: min(1600px, 100%);
+    margin: 0 auto;
+    padding: 28px;
+}
+
+.estado-carga-prueba[hidden] {
+    display: none;
+}
+
+.prueba-pagina-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 22px;
+}
+
+.prueba-pagina-heading h1 {
+    color: #ffffff;
+    font-size: clamp(26px, 3vw, 36px);
+}
+
+.prueba-pagina-heading p {
+    color: rgba(255, 255, 255, 0.78);
+    margin-top: 6px;
+}
+
+.aviso-supervision {
+    max-width: 470px;
+    padding: 12px 16px;
+    color: #fff3c0;
+    background: rgba(243, 198, 35, 0.12);
+    border: 1px solid rgba(243, 198, 35, 0.45);
+    border-radius: 9px;
+}
+
+.prueba-pagina .prueba-examen {
+    margin-top: 0;
+    padding: 28px;
+    background: rgba(4, 17, 35, 0.42);
+}
+
+.prueba-pagina .prueba-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 390px);
+    gap: 24px;
+}
+
+.prueba-pagina .prueba-contenido {
+    min-height: 520px;
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+}
+
+.prueba-pagina .pregunta-prueba {
+    min-height: 340px;
+    padding: 28px;
+}
+
+.prueba-pagina .pregunta-prueba legend,
+.prueba-pagina .pregunta-prueba h4,
+.prueba-pagina .pregunta-prueba > p {
+    font-size: clamp(20px, 2vw, 28px);
+    line-height: 1.45;
+}
+
+.prueba-pagina .pregunta-prueba label {
+    padding: 16px;
+    font-size: 18px;
+}
+
+.prueba-pagina .respuesta-complexiva-prueba {
+    min-height: 270px;
+    padding: 16px;
+    font-size: 17px;
+}
+
+.prueba-pagina .camera-panel {
+    top: 86px;
+    padding: 20px;
+    border: 1px solid rgba(243, 198, 35, 0.42);
+}
+
+.prueba-pagina .camera-panel video {
+    aspect-ratio: 4 / 3;
+    max-height: none;
+    min-height: 250px;
+}
+
+.prueba-pagina .estado-supervision {
+    color: #b7f7c2;
+    font-weight: 700;
+}
+
+.prueba-pagina .form-actions {
+    justify-content: flex-end;
+    margin-top: 24px;
+}
+
+.prueba-pagina .form-actions button {
+    width: auto;
+    min-width: 180px;
+}
+
+.reportes-panel {
+    margin-top: 28px;
+    padding: 22px;
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(243, 198, 35, 0.28);
+    border-radius: 12px;
+}
+
+.reporte-examen {
+    margin-top: 18px;
+    padding: 16px;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+}
+
+.reporte-examen h3 {
+    margin-bottom: 12px;
+}
+
+.reporte-intento {
+    display: grid;
+    grid-template-columns: minmax(200px, 0.8fr) minmax(220px, 1fr) minmax(260px, 1.2fr);
+    align-items: start;
+    gap: 16px;
+    padding: 12px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.reporte-intento > div:first-child {
+    display: grid;
+    gap: 4px;
+}
+
+.reporte-intento details {
+    min-width: 180px;
+    color: #ffffff;
+}
+
+.reporte-intento summary {
+    cursor: pointer;
+    color: #f3c623;
+}
+
+.reporte-intento details ol {
+    display: grid;
+    gap: 10px;
+    margin: 10px 0 0 20px;
+}
+
+.reporte-intento details p {
+    margin-top: 4px;
+    white-space: pre-wrap;
+}
+
+.reporte-intento details ul {
+    display: grid;
+    gap: 8px;
+    margin: 10px 0 0 20px;
+}
+
+.formulario-calificar-complexiva {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    background: rgba(0, 0, 0, 0.16);
+    border: 1px solid rgba(243, 198, 35, 0.3);
+    border-radius: 8px;
+}
+
+.formulario-calificar-complexiva > div {
+    display: grid;
+    gap: 7px;
+}
+
+.formulario-calificar-complexiva label {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.formulario-calificar-complexiva input,
+.formulario-calificar-complexiva textarea {
+    width: 100%;
+    margin: 0;
+}
+
+.formulario-calificar-complexiva textarea {
+    min-height: 64px;
+}
+
+.formulario-calificar-complexiva button {
+    width: auto;
+    margin: 0;
+}
+
+.resumen-calificacion-maestro {
+    color: #b7f7c2;
+    font-weight: 700;
+}
+
+.reporte-intento span,
+.reporte-intento time {
+    color: rgba(255, 255, 255, 0.78);
+}
+
+@media (max-width: 900px) {
+    .prueba-pagina .prueba-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .prueba-pagina .camera-panel {
+        position: static;
+    }
+
+    .prueba-pagina-heading {
+        flex-direction: column;
+    }
+
+    .reporte-intento {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .prueba-pagina {
+        padding: 14px;
+    }
+
+    .prueba-pagina .prueba-examen,
+    .prueba-pagina .prueba-contenido {
+        padding: 16px;
+    }
+
+    .prueba-pagina .pregunta-prueba {
+        min-height: 260px;
+        padding: 18px;
+    }
+
+    .reporte-intento {
+        grid-template-columns: 1fr;
+    }
 }

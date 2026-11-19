@@ -33,27 +33,39 @@ service cloud.firestore {
       return correoAdminVerificado();
     }
 
+    function propietarioDeExamen(examenId) {
+      return autenticado()
+        && exists(/databases/$(database)/documents/examenes/$(examenId))
+        && get(/databases/$(database)/documents/examenes/$(examenId)).data.maestroUid == request.auth.uid;
+    }
+
     match /usuarios/{uid} {
       allow create: if autenticado()
         && request.auth.uid == uid
         && request.resource.data.correo == request.auth.token.email
         && rolPermitido(request.resource.data.rol)
         && request.resource.data.keys().hasOnly([
-          "correo", "rol", "primerAcceso", "ultimoAcceso", "enLinea", "cantidadAccesos"
-        ]);
+          "correo", "rol", "primerAcceso", "ultimoAcceso", "enLinea", "cantidadAccesos", "nombreCompleto"
+        ])
+        && (!request.resource.data.keys().hasAny(["nombreCompleto"])
+          || (request.resource.data.nombreCompleto is string && request.resource.data.nombreCompleto.size() <= 120));
       allow update: if autenticado()
         && request.auth.uid == uid
         && request.resource.data.correo == resource.data.correo
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "ultimoAcceso", "enLinea", "cantidadAccesos", "ultimaActividad"
+          "ultimoAcceso", "enLinea", "cantidadAccesos", "ultimaActividad", "nombreCompleto"
         ])
+        && (!request.resource.data.keys().hasAny(["nombreCompleto"])
+          || (request.resource.data.nombreCompleto is string && request.resource.data.nombreCompleto.size() <= 120))
         || (correoAdminVerificado()
           && request.auth.uid == uid
           && request.resource.data.correo == request.auth.token.email
           && request.resource.data.rol == "admin"
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            "rol", "ultimoAcceso", "enLinea", "cantidadAccesos", "ultimaActividad"
-          ]));
+            "rol", "ultimoAcceso", "enLinea", "cantidadAccesos", "ultimaActividad", "nombreCompleto"
+          ])
+          && (!request.resource.data.keys().hasAny(["nombreCompleto"])
+            || (request.resource.data.nombreCompleto is string && request.resource.data.nombreCompleto.size() <= 120)));
       allow read: if administrador() || maestro() || (autenticado() && request.auth.uid == uid);
     }
 
@@ -63,12 +75,56 @@ service cloud.firestore {
 
     match /examenes/{examenId} {
       allow read: if autenticado();
-      allow create, update, delete: if maestro();
+      allow create: if maestro() && request.resource.data.maestroUid == request.auth.uid;
+      allow update: if administrador()
+        || (maestro()
+          && (resource.data.maestroUid == request.auth.uid
+            || (!resource.data.keys().hasAny(["maestroUid"]) && request.resource.data.maestroUid == request.auth.uid))
+          && request.resource.data.maestroUid == request.auth.uid);
+      allow delete: if administrador() || (maestro() && resource.data.maestroUid == request.auth.uid);
     }
 
     match /resultados/{resultadoId} {
-      allow create: if autenticado() && request.resource.data.estudianteUid == request.auth.uid;
-      allow read: if maestro() || (autenticado() && resource.data.estudianteUid == request.auth.uid);
+      allow create: if autenticado()
+        && request.resource.data.keys().hasOnly([
+          "estudianteUid", "estudianteCorreo", "nombreCompleto", "maestroUid", "maestroCorreo",
+          "examenId", "examenNombre", "formato", "respuestasCorrectas", "totalPreguntas",
+          "calificacion", "respuestas", "respuestasDetalle", "cambiosPestana", "movimientosCamara",
+          "eventosSupervision", "eventosOmitidos", "fechaInicio", "duracionSegundos", "motivoEntrega",
+          "estado", "fechaEntrega"
+        ])
+        && request.resource.data.estudianteUid == request.auth.uid
+        && request.resource.data.estudianteCorreo == request.auth.token.email
+        && request.resource.data.nombreCompleto
+          == get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.nombreCompleto
+        && propietarioDeExamen(request.resource.data.examenId)
+        && request.resource.data.maestroUid == get(/databases/$(database)/documents/examenes/$(request.resource.data.examenId)).data.maestroUid
+        && request.resource.data.respuestas is list
+        && request.resource.data.respuestasDetalle is list
+        && request.resource.data.eventosSupervision is list
+        && request.resource.data.eventosOmitidos is int
+        && request.resource.data.duracionSegundos is int
+        && request.resource.data.duracionSegundos >= 0
+        && request.resource.data.fechaInicio is timestamp
+        && request.resource.data.motivoEntrega in ["entrega_manual", "tiempo_agotado", "bloqueada_por_cambios"]
+        && request.resource.data.fechaEntrega == request.time;
+      allow read: if administrador()
+        || (maestro() && resource.data.maestroUid == request.auth.uid)
+        || (autenticado() && resource.data.estudianteUid == request.auth.uid);
+      allow update: if administrador()
+        || (maestro()
+          && resource.data.maestroUid == request.auth.uid
+          && resource.data.estado == "pendiente"
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            "calificacionesComplexivas", "calificacion", "estado", "calificadaPorUid", "fechaCalificacion"
+          ])
+          && request.resource.data.calificacionesComplexivas is list
+          && request.resource.data.calificacion is number
+          && request.resource.data.calificacion >= 0
+          && request.resource.data.calificacion <= 10
+          && request.resource.data.estado == "calificada"
+          && request.resource.data.calificadaPorUid == request.auth.uid
+          && request.resource.data.fechaCalificacion == request.time);
     }
   }
 }
