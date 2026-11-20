@@ -6,7 +6,7 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, Arial, sans-serif;
-    background: linear-gradient(135deg, #071b33 0%, #123f67 55%, #24143f 100%);
+    background: #f4f7fb;
     color: #000000;
     min-height: 100vh;
 }
@@ -94,6 +94,39 @@ body {
     display: flex;
     align-items: center;
     gap: 18px;
+}
+
+.navbar-navigation {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.navbar-link {
+    width: auto;
+    margin: 0;
+    padding: 10px 16px;
+    color: #ffffff;
+    background: transparent;
+    box-shadow: none;
+}
+
+.navbar-link:hover {
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: none;
+}
+
+.navbar-alerta {
+    margin: 0;
+    white-space: nowrap;
+    color: #17324d;
+    background: #f3c623;
+}
+
+.navbar-alerta:disabled {
+    cursor: default;
+    opacity: 0.72;
+    transform: none;
 }
 
 .cuenta-menu {
@@ -481,6 +514,9 @@ button:active {
 }
 
 .usuarios-panel {
+    grid-column: 1 / -1;
+    width: 100%;
+    box-sizing: border-box;
     margin-top: 24px;
     padding: 24px;
     background: rgba(255, 255, 255, 0.08);
@@ -526,6 +562,7 @@ button:active {
 }
 
 .examenes-panel {
+    grid-column: 1 / -1;
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(243, 198, 35, 0.35);
@@ -1185,6 +1222,30 @@ button:disabled {
     margin-top: 0;
 }
 
+.prueba-examen.resultado-entregado {
+    max-width: 980px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.prueba-examen.resultado-entregado .prueba-pagina-heading,
+.prueba-examen.resultado-entregado .camera-panel,
+.prueba-examen.resultado-entregado #preguntas-prueba,
+.prueba-examen.resultado-entregado #navegacion-preguntas,
+.prueba-examen.resultado-entregado .form-actions {
+    display: none;
+}
+
+.prueba-examen.resultado-entregado .prueba-layout,
+.prueba-examen.resultado-entregado .prueba-contenido {
+    display: block;
+}
+
+.resultado-etiqueta {
+    margin: 14px 0 4px;
+    color: rgba(226, 255, 230, 0.82);
+}
+
 .resultado-nota {
     display: block;
     margin: 12px 0;
@@ -1200,6 +1261,11 @@ button:disabled {
 
 .resultado-informe p {
     margin: 6px 0;
+}
+
+.resultado-prueba #resultado-volver {
+    width: auto;
+    margin: 16px 0 0;
 }
 
 .sin-preguntas {
@@ -1327,67 +1393,96 @@ button:disabled {
 }
 
 .reportes-panel {
+    width: 100%;
+    box-sizing: border-box;
     margin-top: 28px;
-    padding: 22px;
+    padding: 26px;
     background: rgba(0, 0, 0, 0.15);
     border: 1px solid rgba(243, 198, 35, 0.28);
     border-radius: 12px;
 }
 
 .reporte-examen {
+    width: 100%;
+    box-sizing: border-box;
     margin-top: 18px;
-    padding: 16px;
+    padding: 20px 24px;
     color: #ffffff;
-    background: rgba(255, 255, 255, 0.06);
-    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.075);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
 }
 
 .reporte-examen h3 {
-    margin-bottom: 12px;
+    margin: 0 0 10px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .reporte-intento {
     display: grid;
-    grid-template-columns: minmax(200px, 0.8fr) minmax(220px, 1fr) minmax(260px, 1.2fr);
+    grid-template-columns: minmax(230px, 0.65fr) minmax(280px, 0.95fr) minmax(380px, 1.4fr);
     align-items: start;
-    gap: 16px;
-    padding: 12px 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    gap: 20px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 18px;
+    margin-top: 14px;
+    background: rgba(4, 17, 35, 0.32);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    overflow: hidden;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .reporte-intento > div:first-child {
     display: grid;
-    gap: 4px;
+    gap: 6px;
+    min-width: 0;
 }
 
 .reporte-intento details {
-    min-width: 180px;
+    min-width: 0;
+    padding: 12px;
+    background: rgba(4, 17, 35, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
     color: #ffffff;
 }
 
 .reporte-intento summary {
     cursor: pointer;
+    font-weight: 700;
     color: #f3c623;
+}
+
+.reporte-intento details[open] {
+    max-height: 520px;
+    overflow-y: auto;
 }
 
 .reporte-intento details ol {
     display: grid;
     gap: 10px;
-    margin: 10px 0 0 20px;
+    margin: 12px 0 0;
+    padding: 0 0 0 22px;
 }
 
 .reporte-intento details p {
     margin-top: 4px;
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 .reporte-intento details ul {
     display: grid;
     gap: 8px;
-    margin: 10px 0 0 20px;
+    margin: 12px 0 0;
+    padding: 0 0 0 18px;
 }
 
 .formulario-calificar-complexiva {
+    grid-column: 1 / -1;
     display: grid;
     gap: 12px;
     padding: 14px;
@@ -1422,6 +1517,7 @@ button:disabled {
 }
 
 .resumen-calificacion-maestro {
+    grid-column: 1 / -1;
     color: #b7f7c2;
     font-weight: 700;
 }
@@ -1429,6 +1525,77 @@ button:disabled {
 .reporte-intento span,
 .reporte-intento time {
     color: rgba(255, 255, 255, 0.78);
+    overflow-wrap: anywhere;
+}
+
+.dashboard-content:has(.reportes-panel:not([hidden])) {
+    grid-template-columns: 1fr;
+    width: min(1500px, calc(100% - 32px));
+    max-width: none;
+}
+
+.dashboard-content:has(.reportes-panel:not([hidden])) .dashboard-card {
+    max-width: none;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.dashboard-content:has(.usuarios-panel:not([hidden])) .dashboard-card {
+    display: none;
+}
+
+.dashboard-content:has(.usuarios-panel:not([hidden])) {
+    grid-template-columns: 1fr;
+    width: min(1500px, calc(100% - 32px));
+    max-width: none;
+}
+
+.avisos-examenes {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 8px;
+    width: 100%;
+    padding: 14px 18px;
+    color: #17324d;
+    background: #fff4c7;
+    border: 1px solid #edcf65;
+    border-radius: 10px;
+}
+
+.avisos-examenes[hidden] {
+    display: none;
+}
+
+@media (max-width: 900px) {
+    .navbar {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .navbar-navigation {
+        order: 2;
+        width: 100%;
+    }
+
+    .navbar-actions {
+        margin-left: auto;
+    }
+
+    .navbar-alerta,
+    .tecnologico-navbar {
+        display: none;
+    }
+}
+
+@media (max-width: 1200px) {
+    .reporte-intento {
+        grid-template-columns: minmax(220px, 0.75fr) minmax(260px, 1fr);
+    }
+
+    .reporte-intento .reporte-supervision {
+        grid-column: 1 / -1;
+    }
 }
 
 @media (max-width: 900px) {
@@ -1467,4 +1634,251 @@ button:disabled {
     .reporte-intento {
         grid-template-columns: 1fr;
     }
+}
+
+/* Fondo claro para todas las vistas internas */
+body:not(.login-page) {
+    background: #f4f7fb;
+}
+
+.dashboard,
+.prueba-pagina {
+    background: #f4f7fb;
+}
+
+.examenes-panel,
+.usuarios-panel,
+.calificaciones-panel,
+.estadisticas-panel,
+.vista-previa-panel,
+.reportes-panel,
+.reporte-examen {
+    color: #17324d;
+    background: #ffffff;
+    border: 1px solid #dce5ef;
+    box-shadow: 0 10px 30px rgba(23, 50, 77, 0.08);
+}
+
+.examenes-panel .panel-heading h2,
+.usuarios-panel .panel-heading h2,
+.calificaciones-panel h2,
+.estadisticas-panel h2,
+.vista-previa-panel h2,
+.reportes-panel h2,
+.reporte-examen h3,
+.prueba-pagina-heading h1 {
+    color: #17324d;
+}
+
+.examenes-panel .panel-heading p,
+.usuarios-panel .panel-heading p,
+.calificaciones-panel p,
+.estadisticas-panel span,
+.vista-previa-panel p,
+.reportes-panel .panel-heading p,
+.prueba-pagina-heading p {
+    color: #60758a;
+}
+
+.formulario-examen,
+.configuracion-examen,
+.formulario-pregunta,
+.editor-examen,
+.lista-examenes,
+.lista-usuarios,
+.lista-calificaciones,
+.lista-reportes {
+    color: #17324d;
+}
+
+.formulario-examen,
+.configuracion-examen,
+.formulario-pregunta,
+.editor-examen {
+    background: #f8fafc;
+    border: 1px solid #dfe7ef;
+}
+
+.reporte-intento {
+    background: #f8fafc;
+    border: 1px solid #dfe7ef;
+}
+
+.reporte-intento details {
+    background: #ffffff;
+    border: 1px solid #dfe7ef;
+    color: #17324d;
+}
+
+.reporte-intento > div:first-child strong,
+.reporte-intento details strong,
+.reporte-intento details p,
+.reporte-intento details li,
+.reporte-intento time,
+.reporte-intento span {
+    color: #17324d;
+}
+
+.reporte-intento summary {
+    color: #9a7100;
+}
+
+.pagina-prueba {
+    color: #17324d;
+    background: #f4f7fb;
+}
+
+.pagina-prueba .prueba-examen,
+.pagina-prueba .prueba-contenido {
+    background: #ffffff;
+    border: 1px solid #dce5ef;
+    box-shadow: 0 12px 34px rgba(23, 50, 77, 0.08);
+}
+
+.pagina-prueba .prueba-pagina-heading p,
+.pagina-prueba .pregunta-prueba,
+.pagina-prueba .navegacion-preguntas,
+.pagina-prueba .sin-preguntas {
+    color: #17324d;
+}
+
+.pagina-prueba .pregunta-prueba {
+    background: #f8fafc;
+    border-color: #dfe7ef;
+}
+
+/* Contraste claro: textos y controles dentro de paneles blancos */
+body:not(.login-page) .panel-heading h2,
+body:not(.login-page) .panel-heading p,
+body:not(.login-page) .formulario-examen h3,
+body:not(.login-page) .formulario-examen label,
+body:not(.login-page) .editor-heading h3,
+body:not(.login-page) .editor-examen h4,
+body:not(.login-page) .editor-heading p,
+body:not(.login-page) #formulario-pregunta > label,
+body:not(.login-page) #campos-pregunta label,
+body:not(.login-page) .preguntas-guardadas p,
+body:not(.login-page) .examen-item h3,
+body:not(.login-page) .examen-item p,
+body:not(.login-page) .usuario-item strong,
+body:not(.login-page) .usuario-item p,
+body:not(.login-page) .usuario-item span,
+body:not(.login-page) .calificacion-item,
+body:not(.login-page) .calificacion-item strong,
+body:not(.login-page) .calificacion-item span,
+body:not(.login-page) .calificacion-item time,
+body:not(.login-page) .estadisticas-panel h2,
+body:not(.login-page) .estadistica-item span,
+body:not(.login-page) .vista-previa-panel h2,
+body:not(.login-page) .vista-previa-panel p,
+body:not(.login-page) .estado-mensaje {
+    color: #17324d;
+}
+
+body:not(.login-page) .panel-heading p,
+body:not(.login-page) .examen-item p,
+body:not(.login-page) .usuario-item p,
+body:not(.login-page) .usuario-item span,
+body:not(.login-page) .calificacion-item span,
+body:not(.login-page) .calificacion-item time,
+body:not(.login-page) .estadistica-item span,
+body:not(.login-page) .vista-previa-panel p,
+body:not(.login-page) .preguntas-guardadas p {
+    color: #60758a;
+}
+
+body:not(.login-page) .formulario-examen,
+body:not(.login-page) .configuracion-examen,
+body:not(.login-page) .editor-examen,
+body:not(.login-page) #formulario-pregunta {
+    color: #17324d;
+}
+
+body:not(.login-page) .formulario-examen input,
+body:not(.login-page) .formulario-examen textarea,
+body:not(.login-page) .configuracion-examen input,
+body:not(.login-page) .configuracion-examen textarea,
+body:not(.login-page) #campos-pregunta input,
+body:not(.login-page) #campos-pregunta textarea {
+    color: #17324d;
+    background: #ffffff;
+    border: 1px solid #bdcad8;
+}
+
+body:not(.login-page) .formulario-examen input::placeholder,
+body:not(.login-page) .formulario-examen textarea::placeholder,
+body:not(.login-page) #campos-pregunta input::placeholder,
+body:not(.login-page) #campos-pregunta textarea::placeholder {
+    color: #7b8d9f;
+}
+
+body:not(.login-page) .formulario-examen select,
+body:not(.login-page) #tipo-pregunta,
+body:not(.login-page) #campos-pregunta select {
+    color: #17324d;
+    background: #ffffff;
+    border: 1px solid #bdcad8;
+}
+
+body:not(.login-page) .btn-secondary {
+    color: #17324d;
+    background: #edf3f8;
+    border: 1px solid #cfdbe7;
+}
+
+body:not(.login-page) .btn-secondary:hover {
+    color: #102943;
+    background: #dfeaf3;
+}
+
+body:not(.login-page) .examen-item,
+body:not(.login-page) .usuario-item,
+body:not(.login-page) .calificacion-item,
+body:not(.login-page) .estadistica-item {
+    background: #f8fafc;
+    border: 1px solid #dfe7ef;
+}
+
+body:not(.login-page) .examen-item:hover {
+    background: #eef4f9;
+}
+
+body:not(.login-page) .examen-item span,
+body:not(.login-page) .usuario-item span,
+body:not(.login-page) .estadistica-item strong,
+body:not(.login-page) .rol-usuario,
+body:not(.login-page) .editor-heading p {
+    color: #9a7100;
+}
+
+body:not(.login-page) .btn-download {
+    color: #17324d;
+    background: #f8e7a4;
+}
+
+body:not(.login-page) .btn-delete {
+    color: #8d2c34;
+    background: #f7dfe1;
+}
+
+body:not(.login-page) .estado-mensaje.estado-error {
+    color: #a3222f;
+}
+
+body:not(.login-page) .resultado-prueba {
+    color: #17324d;
+    background: #edf8ef;
+    border-left-color: #45a05b;
+}
+
+body:not(.login-page) .resultado-etiqueta,
+body:not(.login-page) .resultado-informe,
+body:not(.login-page) .resultado-informe p,
+body:not(.login-page) #resultado-redireccion {
+    color: #17324d;
+}
+
+body:not(.login-page) .resultado-informe {
+    background: #f8fafc;
+    border: 1px solid #dfe7ef;
 }

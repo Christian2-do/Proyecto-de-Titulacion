@@ -4,17 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard - Sistema Antifraude</title>
-<link rel="stylesheet" href="styles.css?v=20">
+<link rel="stylesheet" href="styles.css?v=26">
 </head>
 <body>
 
 <div class="navbar">
-    <div class="nav-logo">
-        <img src="img/Sistema_antifraude_con_logo_CA-removebg-preview.png" alt="Sistema Antifraude" class="logo-navbar">
-        <h2>SISTEMA <span>ANTIFRAUDIE</span></h2>
-    </div>
+    <nav class="navbar-navigation" aria-label="Navegación principal">
+        <button type="button" class="navbar-link" onclick="mostrarExamenes()">Exámenes</button>
+        <button type="button" class="navbar-link" onclick="mostrarCalificaciones()">Calificaciones</button>
+    </nav>
     <div class="navbar-actions">
         <img src="img/Tecnologico_TESA-removebg-preview.png" alt="Tecnológico San Antonio Tesa" class="tecnologico-navbar">
+        <button type="button" id="activar-notificaciones" class="btn-secondary navbar-alerta" onclick="activarNotificacionesExamen()">Activar avisos</button>
         <div class="cuenta-menu">
             <button type="button" id="cuenta-menu-boton" class="btn-secondary" aria-expanded="false" aria-controls="cuenta-menu-panel" onclick="alternarMenuCuenta(event)">Cuenta</button>
             <div id="cuenta-menu-panel" class="cuenta-menu-panel" hidden>
@@ -35,12 +36,7 @@
 
 <div class="dashboard">
     <div class="dashboard-content">
-        <div class="dashboard-card">
-            <h3>Bienvenido, Usuario</h3>
-            <span id="rol-usuario" class="rol-usuario"></span>
-            <p>Sistema de evaluación antifraude TESA</p>
-        </div>
-
+        <aside id="avisos-examenes" class="avisos-examenes" aria-live="polite" hidden></aside>
         <section id="calificaciones-panel" class="calificaciones-panel" hidden aria-labelledby="calificaciones-titulo">
             <div class="panel-heading">
                 <div>
@@ -82,6 +78,35 @@
             </div>
         </section>
 
+        <section id="usuarios-panel" class="usuarios-panel" hidden aria-labelledby="usuarios-titulo">
+            <div class="panel-heading">
+                <div>
+                    <h2 id="usuarios-titulo">Agregar y administrar estudiantes</h2>
+                    <p>Registra cuentas institucionales y consulta los usuarios registrados.</p>
+                </div>
+            </div>
+            <form id="formulario-usuario" class="formulario-examen" onsubmit="registrarPersona(event)">
+                <h3>Agregar estudiante o maestro</h3>
+                <label for="correo-persona">Correo institucional</label>
+                <input type="email" id="correo-persona" placeholder="persona@estud.tesa.edu.ec o persona@tesa.edu.ec" oninput="actualizarRolPersona()" required>
+                <label for="rol-persona">Rol</label>
+                <select id="rol-persona" required>
+                    <option value="estudiante">Estudiante</option>
+                    <option value="maestro">Maestro</option>
+                </select>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Registrar persona</button>
+                </div>
+            </form>
+            <div id="lista-usuarios" class="lista-usuarios"></div>
+        </section>
+
+        <div class="dashboard-card">
+            <h3>Bienvenido, Usuario</h3>
+            <span id="rol-usuario" class="rol-usuario"></span>
+            <p>Sistema de evaluación antifraude TESA</p>
+        </div>
+
         <section class="examenes-panel" aria-labelledby="examenes-titulo">
             <div class="panel-heading">
                 <div>
@@ -118,8 +143,6 @@
                 </div>
             </form>
 
-            <div id="lista-examenes" class="lista-examenes"></div>
-
             <section id="reportes-panel" class="reportes-panel" hidden aria-labelledby="reportes-titulo">
                 <div class="panel-heading">
                     <div>
@@ -131,6 +154,8 @@
                 <p id="estado-reportes" class="estado-mensaje" role="status" aria-live="polite"></p>
                 <div id="lista-reportes" class="lista-reportes"></div>
             </section>
+
+            <div id="lista-examenes" class="lista-examenes"></div>
 
             <section id="editor-examen" class="editor-examen" hidden aria-labelledby="editor-titulo">
                 <div class="editor-heading">
@@ -171,28 +196,6 @@
                 <div id="preguntas-guardadas" class="preguntas-guardadas"></div>
             </section>
 
-            <section id="usuarios-panel" class="usuarios-panel" hidden aria-labelledby="usuarios-titulo">
-                <div class="panel-heading">
-                    <div>
-                        <h2 id="usuarios-titulo">Personas registradas</h2>
-                        <p>Usuarios que han ingresado correctamente al sistema.</p>
-                    </div>
-                </div>
-                <form id="formulario-usuario" class="formulario-examen" onsubmit="registrarPersona(event)">
-                    <h3>Agregar estudiante o maestro</h3>
-                    <label for="correo-persona">Correo institucional</label>
-                    <input type="email" id="correo-persona" placeholder="persona@estud.tesa.edu.ec o persona@tesa.edu.ec" oninput="actualizarRolPersona()" required>
-                    <label for="rol-persona">Rol</label>
-                    <select id="rol-persona" required>
-                        <option value="estudiante">Estudiante</option>
-                        <option value="maestro">Maestro</option>
-                    </select>
-                    <div class="form-actions">
-                        <button type="submit" class="btn-primary">Registrar persona</button>
-                    </div>
-                </form>
-                <div id="lista-usuarios" class="lista-usuarios"></div>
-            </section>
         </section>
     </div>
 </div>
@@ -200,7 +203,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=12"></script>
-<script src="script.js?v=19"></script>
+<script src="firebase-config.js?v=13"></script>
+<script src="script.js?v=21"></script>
 </body>
 </html>

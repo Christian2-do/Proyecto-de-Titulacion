@@ -18,6 +18,8 @@ let eventosOmitidos = 0;
 let inicioPruebaMilisegundos = null;
 let ultimoEventoMovimiento = 0;
 let monitoreoCamara = null;
+let avisosExamenEnviados = new Set();
+let intervaloAvisosExamen = null;
 const CORREO_ADMINISTRADOR = "christianandrango23.24@gmail.com";
 
 // LOGIN
@@ -302,6 +304,80 @@ function mostrarCalificaciones() {
 
 function cerrarCalificaciones() {
     document.getElementById("calificaciones-panel").hidden = true;
+}
+
+function mostrarExamenes() {
+    const panel = document.querySelector(".examenes-panel");
+    if (!panel) return;
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function activarNotificacionesExamen() {
+    const boton = document.getElementById("activar-notificaciones");
+    if (!("Notification" in window)) {
+        alert("Este navegador no admite notificaciones.");
+        return;
+    }
+    const permiso = await Notification.requestPermission();
+    if (permiso === "granted") {
+        new Notification("Avisos de exámenes activados", {
+            body: "Recibirás avisos antes de que cierre un examen."
+        });
+        if (boton) {
+            boton.textContent = "Avisos activos";
+            boton.disabled = true;
+        }
+        iniciarAvisosExamenes();
+    } else {
+        if (boton) boton.textContent = "Permiso denegado";
+    }
+}
+
+function iniciarAvisosExamenes() {
+    if (intervaloAvisosExamen) clearInterval(intervaloAvisosExamen);
+    revisarAvisosExamenes();
+    intervaloAvisosExamen = setInterval(revisarAvisosExamenes, 60000);
+}
+
+function revisarAvisosExamenes() {
+    if (!firebaseAuth.currentUser || esMaestro()) return;
+    firebaseDb.collection("examenes").get().then((snapshot) => {
+        const ahora = Date.now();
+        const avisos = [];
+        snapshot.docs.forEach((documento) => {
+            const examen = { id: documento.id, ...documento.data() };
+            if (!examen.cierraEn) return;
+            const cierre = new Date(examen.cierraEn).getTime();
+            if (Number.isNaN(cierre)) return;
+            const minutos = Math.ceil((cierre - ahora) / 60000);
+            if (minutos > 0 && minutos <= 30) {
+                const clave = `${examen.id}-30`;
+                const mensaje = `El examen "${examen.nombre || "Prueba"}" cierra en ${minutos} minuto${minutos === 1 ? "" : "s"}.`;
+                avisos.push(mensaje);
+                if (!avisosExamenEnviados.has(clave) && "Notification" in window && Notification.permission === "granted") {
+                    avisosExamenEnviados.add(clave);
+                    new Notification("Examen por cerrar", { body: mensaje });
+                }
+            } else if (minutos <= 0 && minutos > -15) {
+                const clave = `${examen.id}-cerrado`;
+                const mensaje = `El examen "${examen.nombre || "Prueba"}" cerró.`;
+                avisos.push(mensaje);
+                if (!avisosExamenEnviados.has(clave) && "Notification" in window && Notification.permission === "granted") {
+                    avisosExamenEnviados.add(clave);
+                    new Notification("Examen cerrado", { body: mensaje });
+                }
+            }
+        });
+        const contenedor = document.getElementById("avisos-examenes");
+        if (!contenedor) return;
+        contenedor.hidden = avisos.length === 0;
+        contenedor.replaceChildren();
+        avisos.forEach((mensaje) => {
+            const aviso = document.createElement("p");
+            aviso.textContent = mensaje;
+            contenedor.appendChild(aviso);
+        });
+    }).catch(() => {});
 }
 
 function establecerEstadoCalificaciones(mensaje, error = false) {
@@ -1184,6 +1260,7 @@ function inicializarPaginaPrueba() {
             document.getElementById("prueba-titulo").textContent = examenPruebaEnVentana.nombre || "Prueba";
             document.getElementById("prueba-formato").textContent = `${examenPruebaEnVentana.materia || ""} | ${obtenerTextoFormatoExamen(examenPruebaEnVentana)}`;
             document.getElementById("resultado-prueba").hidden = true;
+            document.getElementById("prueba-examen").classList.remove("resultado-entregado");
             document.getElementById("finalizar-prueba").disabled = true;
             document.getElementById("aviso-cambio-pestana").hidden = true;
             renderizarPreguntasPrueba(preguntasPruebaSistema, examenPruebaEnVentana.formato);
@@ -1261,7 +1338,9 @@ function renderizarPreguntasPrueba(preguntas, formato) {
         contenedor.innerHTML = `<article class="pregunta-prueba complexiva-prueba"><h4>Pregunta ${indicePreguntaPruebaActual + 1}</h4><p>${escaparHtml(pregunta.texto)}</p><textarea class="respuesta-complexiva-prueba" placeholder="Escribe tu respuesta">${escaparHtml(respuesta)}</textarea></article>`;
         contenedor.querySelector("textarea").addEventListener("input", (event) => {
             respuestasPruebaSistema[indicePreguntaPruebaActual] = event.target.value;
+            actualizarEstadoEntregaPrueba();
         });
+        actualizarEstadoEntregaPrueba();
         return;
     }
 
@@ -1274,8 +1353,21 @@ function renderizarPreguntasPrueba(preguntas, formato) {
     contenedor.querySelectorAll("input[type=radio]").forEach((opcion) => {
         opcion.addEventListener("change", (event) => {
             respuestasPruebaSistema[indicePreguntaPruebaActual] = event.target.value;
+            actualizarEstadoEntregaPrueba();
         });
     });
+    actualizarEstadoEntregaPrueba();
+}
+
+function actualizarEstadoEntregaPrueba() {
+    const botonFinalizar = document.getElementById("finalizar-prueba");
+    if (!botonFinalizar) return;
+    const todasRespondidas = preguntasPruebaSistema.length > 0
+        && preguntasPruebaSistema.every((_, indice) => {
+            const respuesta = respuestasPruebaSistema[indice];
+            return typeof respuesta === "string" && respuesta.trim().length > 0;
+        });
+    botonFinalizar.disabled = !pruebaIniciada || !todasRespondidas;
 }
 
 function navegarPreguntaPrueba(desplazamiento) {
@@ -1308,7 +1400,7 @@ async function iniciarPruebaSistema() {
         registrarEventoSupervision("camara_activada", "El estudiante autorizó la cámara; la vista permanece local y no se graba.");
         iniciarMonitoreoCamara();
         pruebaIniciada = true;
-        document.getElementById("finalizar-prueba").disabled = false;
+        actualizarEstadoEntregaPrueba();
         iniciarTemporizadorPrueba(examenPruebaEnVentana);
     } catch (error) {
         detenerCamaraSistema();
@@ -1341,6 +1433,16 @@ function iniciarTemporizadorPrueba(examen) {
 
 async function finalizarPruebaSistema(motivoEntrega = "entrega_manual") {
     if (!pruebaIniciada || entregaPruebaEnCurso) return;
+    if (motivoEntrega === "entrega_manual") {
+        const todasRespondidas = preguntasPruebaSistema.every((_, indice) => {
+            const respuesta = respuestasPruebaSistema[indice];
+            return typeof respuesta === "string" && respuesta.trim().length > 0;
+        });
+        if (!todasRespondidas) {
+            actualizarEstadoEntregaPrueba();
+            return;
+        }
+    }
     entregaPruebaEnCurso = true;
     clearInterval(temporizadorPrueba);
     temporizadorPrueba = null;
@@ -1422,6 +1524,7 @@ async function finalizarPruebaSistema(motivoEntrega = "entrega_manual") {
         entregaPruebaEnCurso = false;
         document.getElementById("estado-supervision").textContent = "Informe enviado al panel del profesor. No se guardó video.";
         document.getElementById("finalizar-prueba").disabled = true;
+        document.getElementById("prueba-examen").classList.add("resultado-entregado");
         const duracionSegundos = Math.max(0, Math.floor((Date.now() - inicioPruebaMilisegundos) / 1000));
         const motivo = motivoEntrega === "tiempo_agotado"
             ? "Tiempo agotado"
@@ -1429,23 +1532,25 @@ async function finalizarPruebaSistema(motivoEntrega = "entrega_manual") {
                 ? "Tres cambios de pestaña"
                 : "Entrega manual";
         const nota = contieneComplexivas
-            ? "Calificación: Pendiente de revisión"
-            : `Calificación: ${calificacion.toFixed(2)} / 10`;
+            ? "Pendiente de revisión"
+            : `${calificacion.toFixed(2)} / 10`;
         resultado.innerHTML = `
-            <h2>Resultado de la prueba</h2>
+            <h2>Resultado de tu prueba</h2>
+            <p class="resultado-etiqueta">Tu calificación</p>
             <strong class="resultado-nota">${nota}</strong>
             <div class="resultado-informe">
-                <h3>Informe enviado</h3>
+                <h3>Informe de la prueba</h3>
                 <p>Examen: ${escaparHtml(examen.nombre || "Prueba")}</p>
                 <p>Duración: ${formatearDuracion(duracionSegundos)}</p>
                 <p>Entrega: ${motivo}</p>
                 <p>Cambios de pestaña: ${cambiosPestana}</p>
                 <p>Variaciones detectadas: ${movimientosCamara}</p>
             </div>
-            <p id="resultado-redireccion">Volviendo a la página inicial en 8 segundos...</p>
+            <p id="resultado-redireccion">Volviendo a la página inicial en 5 segundos...</p>
+            <button type="button" class="btn-primary" id="resultado-volver" onclick="window.location.href='index.html'">Volver ahora</button>
         `;
 
-        let segundosRestantes = 8;
+        let segundosRestantes = 5;
         const cuentaRegresiva = setInterval(() => {
             segundosRestantes -= 1;
             const indicador = document.getElementById("resultado-redireccion");
@@ -1567,6 +1672,15 @@ if (window.location.pathname.includes("dashboard.html") || window.location.pathn
         const reportes = document.getElementById("reportes-panel");
         if (reportes) reportes.hidden = false;
         cargarReportesProfesor();
+        const botonAvisos = document.getElementById("activar-notificaciones");
+        if (botonAvisos) botonAvisos.hidden = true;
+    } else if ("Notification" in window && Notification.permission === "granted") {
+        const botonAvisos = document.getElementById("activar-notificaciones");
+        if (botonAvisos) {
+            botonAvisos.textContent = "Avisos activos";
+            botonAvisos.disabled = true;
+        }
+        iniciarAvisosExamenes();
     }
     cargarExamenes();
     document.addEventListener("click", (event) => {

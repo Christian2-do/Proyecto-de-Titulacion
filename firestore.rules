@@ -33,10 +33,9 @@ service cloud.firestore {
       return correoAdminVerificado();
     }
 
-    function propietarioDeExamen(examenId) {
+    function examenExiste(examenId) {
       return autenticado()
-        && exists(/databases/$(database)/documents/examenes/$(examenId))
-        && get(/databases/$(database)/documents/examenes/$(examenId)).data.maestroUid == request.auth.uid;
+        && exists(/databases/$(database)/documents/examenes/$(examenId));
     }
 
     match /usuarios/{uid} {
@@ -97,7 +96,7 @@ service cloud.firestore {
         && request.resource.data.estudianteCorreo == request.auth.token.email
         && request.resource.data.nombreCompleto
           == get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.nombreCompleto
-        && propietarioDeExamen(request.resource.data.examenId)
+        && examenExiste(request.resource.data.examenId)
         && request.resource.data.maestroUid == get(/databases/$(database)/documents/examenes/$(request.resource.data.examenId)).data.maestroUid
         && request.resource.data.respuestas is list
         && request.resource.data.respuestasDetalle is list
