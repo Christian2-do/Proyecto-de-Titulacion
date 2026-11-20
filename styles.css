@@ -1882,3 +1882,373 @@ body:not(.login-page) .resultado-informe {
     background: #f8fafc;
     border: 1px solid #dfe7ef;
 }
+
+/* Reglas finales globales: una paleta uniforme para todos los roles */
+body:not(.login-page),
+body:not(.login-page) .dashboard,
+body:not(.login-page) .prueba-pagina,
+body:not(.login-page) .dashboard-card,
+body:not(.login-page) .examen-card,
+body:not(.login-page) .examenes-panel,
+body:not(.login-page) .usuarios-panel,
+body:not(.login-page) .calificaciones-panel,
+body:not(.login-page) .estadisticas-panel,
+body:not(.login-page) .vista-previa-panel,
+body:not(.login-page) .reportes-panel,
+body:not(.login-page) .reporte-examen,
+body:not(.login-page) .prueba-examen,
+body:not(.login-page) .prueba-contenido {
+    color: #17324d !important;
+}
+
+body:not(.login-page) h1,
+body:not(.login-page) h2,
+body:not(.login-page) h3,
+body:not(.login-page) h4,
+body:not(.login-page) legend,
+body:not(.login-page) strong,
+body:not(.login-page) label,
+body:not(.login-page) span,
+body:not(.login-page) p,
+body:not(.login-page) time,
+body:not(.login-page) li,
+body:not(.login-page) summary {
+    color: #17324d !important;
+}
+
+body:not(.login-page) p,
+body:not(.login-page) time,
+body:not(.login-page) li,
+body:not(.login-page) .panel-heading p,
+body:not(.login-page) .examen-item p,
+body:not(.login-page) .usuario-item p,
+body:not(.login-page) .calificacion-item time,
+body:not(.login-page) .estado-mensaje,
+body:not(.login-page) .vista-previa-panel p {
+    color: #60758a !important;
+}
+
+body:not(.login-page) input,
+body:not(.login-page) textarea,
+body:not(.login-page) select {
+    color: #17324d !important;
+    background: #ffffff !important;
+    border: 1px solid #bdcad8 !important;
+}
+
+body:not(.login-page) input::placeholder,
+body:not(.login-page) textarea::placeholder {
+    color: #7b8d9f !important;
+}
+
+body:not(.login-page) .navbar,
+body:not(.login-page) .navbar h1,
+body:not(.login-page) .navbar h2,
+body:not(.login-page) .navbar h3,
+body:not(.login-page) .navbar span,
+body:not(.login-page) .navbar strong,
+body:not(.login-page) .navbar p,
+body:not(.login-page) .camera-panel,
+body:not(.login-page) .camera-panel strong,
+body:not(.login-page) .camera-panel p {
+    color: #ffffff !important;
+}
+
+body:not(.login-page) .navbar-link,
+body:not(.login-page) .btn-secondary,
+body:not(.login-page) .cuenta-menu > button {
+    color: #17324d !important;
+    background: #edf3f8 !important;
+    border: 1px solid #cfdbe7 !important;
+}
+
+body:not(.login-page) .navbar-link {
+    color: #ffffff !important;
+    background: transparent !important;
+    border: 0 !important;
+}
+
+body:not(.login-page) .btn-primary,
+body:not(.login-page) .form-actions button,
+body:not(.login-page) .navegacion-preguntas button,
+body:not(.login-page) .editor-acciones button {
+    color: #17324d !important;
+}
+
+body:not(.login-page) .btn-delete {
+    color: #8d2c34 !important;
+}
+
+body:not(.login-page) .examen-item span,
+body:not(.login-page) .usuario-item span,
+body:not(.login-page) .estadistica-item strong,
+body:not(.login-page) .rol-usuario,
+body:not(.login-page) .reporte-intento summary,
+body:not(.login-page) .editor-heading p {
+    color: #9a7100 !important;
+}
+
+body:not(.login-page) .pregunta-prueba label.opcion-prueba {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: start !important;
+    gap: 12px !important;
+    width: 100% !important;
+    min-height: 58px !important;
+    margin: 10px 0 0 !important;
+    padding: 12px 16px !important;
+    text-align: left !important;
+}
+
+body:not(.login-page) .pregunta-prueba label.opcion-prueba input[type="radio"] {
+    flex: 0 0 18px !important;
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px !important;
+    margin: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    accent-color: #244a6d;
+}
+
+body:not(.login-page) .pregunta-prueba label.opcion-prueba .opcion-respuesta {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    text-align: left !important;
+    white-space: normal !important;
+    color: #17324d !important;
+}
+
+/* Preguntas y opciones siempre legibles */
+body:not(.login-page) .pagina-prueba .pregunta-prueba,
+body:not(.login-page) .pagina-prueba .pregunta-prueba legend,
+body:not(.login-page) .pagina-prueba .pregunta-prueba h4,
+body:not(.login-page) .pagina-prueba .pregunta-prueba > p,
+body:not(.login-page) .pagina-prueba .pregunta-prueba label,
+body:not(.login-page) .pagina-prueba .opcion-respuesta {
+    color: #17324d !important;
+    opacity: 1 !important;
+}
+
+body:not(.login-page) .pagina-prueba .pregunta-prueba legend {
+    display: block !important;
+    width: 100% !important;
+    min-height: 34px !important;
+    margin: 0 0 18px !important;
+    padding: 0 !important;
+    font-size: clamp(20px, 2vw, 28px) !important;
+    font-weight: 800 !important;
+    line-height: 1.35 !important;
+    text-align: left !important;
+}
+
+body:not(.login-page) .pagina-prueba .pregunta-prueba h4 {
+    margin: 0 0 12px !important;
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    line-height: 1.35 !important;
+}
+
+body:not(.login-page) .pagina-prueba .pregunta-prueba > p {
+    margin: 0 0 18px !important;
+    font-size: clamp(18px, 1.6vw, 24px) !important;
+    font-weight: 650 !important;
+    line-height: 1.45 !important;
+}
+
+/* ========== CONTRASTE FINAL PARA ADMINISTRADOR, MAESTRO Y ESTUDIANTE ========== */
+body:not(.login-page) .dashboard-card,
+body:not(.login-page) .examen-card {
+    color: #17324d;
+    background: #ffffff;
+    border: 1px solid #dce5ef;
+    box-shadow: 0 10px 30px rgba(23, 50, 77, 0.08);
+}
+
+body:not(.login-page) .dashboard-card h3,
+body:not(.login-page) .examen-card h2 {
+    color: #17324d;
+}
+
+body:not(.login-page) .dashboard-card p,
+body:not(.login-page) .examen-card p,
+body:not(.login-page) .sin-preguntas {
+    color: #60758a;
+}
+
+body:not(.login-page) .dashboard-card .rol-usuario {
+    color: #9a7100;
+    border-color: #dbc36a;
+}
+
+body:not(.login-page) .cuenta-menu-panel {
+    color: #ffffff;
+    background: #102943;
+}
+
+body:not(.login-page) .cuenta-menu-panel strong,
+body:not(.login-page) .cuenta-menu-panel label,
+body:not(.login-page) .cuenta-menu-panel input,
+body:not(.login-page) .cuenta-menu-panel span {
+    color: #ffffff;
+}
+
+body:not(.login-page) .cuenta-menu-panel input {
+    background: #ffffff;
+    color: #17324d;
+    border: 1px solid #bdcad8;
+}
+
+body:not(.login-page) .cuenta-menu-panel input::placeholder {
+    color: #7b8d9f;
+}
+
+body:not(.login-page) .pagina-prueba .prueba-contenido,
+body:not(.login-page) .pagina-prueba .pregunta-prueba,
+body:not(.login-page) .pagina-prueba .navegacion-preguntas {
+    color: #17324d;
+    background: #ffffff;
+}
+
+body:not(.login-page) .pagina-prueba .pregunta-prueba legend,
+body:not(.login-page) .pagina-prueba .pregunta-prueba h4,
+body:not(.login-page) .pagina-prueba .pregunta-prueba > p {
+    color: #17324d;
+}
+
+body:not(.login-page) .pagina-prueba .pregunta-prueba label {
+    color: #17324d;
+    background: #f8fafc;
+    border: 1px solid #dfe7ef;
+}
+
+body:not(.login-page) .pagina-prueba .pregunta-prueba label.opcion-prueba {
+    display: grid;
+    grid-template-columns: 20px 48px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    min-height: 58px;
+    margin: 10px 0 0;
+    padding: 12px 16px;
+    text-align: left;
+    cursor: pointer;
+    border: 1px solid #dfe7ef;
+    border-radius: 8px;
+}
+
+body:not(.login-page) .pagina-prueba .pregunta-prueba label.opcion-prueba:hover,
+body:not(.login-page) .pagina-prueba .pregunta-prueba label.opcion-prueba:has(input:checked) {
+    background: #eef4f9;
+    border-color: #9cb1c4;
+}
+
+body:not(.login-page) .pagina-prueba .opcion-prueba input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: #244a6d;
+}
+
+body:not(.login-page) .pagina-prueba .opcion-prueba .opcion-letra {
+    color: #17324d;
+    font-weight: 800;
+}
+
+body:not(.login-page) .pagina-prueba .opcion-prueba .opcion-respuesta {
+    color: #17324d;
+    line-height: 1.35;
+}
+
+body:not(.login-page) .pagina-prueba .respuesta-complexiva-prueba {
+    color: #17324d;
+    background: #ffffff;
+    border: 1px solid #bdcad8;
+}
+
+body:not(.login-page) .pagina-prueba .respuesta-complexiva-prueba::placeholder {
+    color: #7b8d9f;
+}
+
+body:not(.login-page) .pagina-prueba .estado-supervision,
+body:not(.login-page) .pagina-prueba .camera-panel strong,
+body:not(.login-page) .pagina-prueba .camera-panel p {
+    color: #ffffff;
+}
+
+body:not(.login-page) .pagina-prueba .camera-panel #estado-supervision {
+    color: #d9ffe0;
+}
+
+body:not(.login-page) .pagina-prueba .aviso-cambio-pestana {
+    color: #7a1f27;
+    background: #f9dfe1;
+    border: 1px solid #e8b8bd;
+}
+
+body:not(.login-page) .reportes-panel .panel-heading p,
+body:not(.login-page) .reporte-examen,
+body:not(.login-page) .reporte-intento,
+body:not(.login-page) .reporte-intento details,
+body:not(.login-page) .reporte-intento details p,
+body:not(.login-page) .reporte-intento details li,
+body:not(.login-page) .reporte-intento span,
+body:not(.login-page) .reporte-intento time,
+body:not(.login-page) .resumen-calificacion-maestro {
+    color: #17324d;
+}
+
+body:not(.login-page) .reporte-examen {
+    background: #ffffff;
+}
+
+body:not(.login-page) .reporte-examen h3 {
+    color: #17324d;
+    border-bottom: 1px solid #dfe7ef;
+}
+
+body:not(.login-page) .reporte-intento {
+    background: #f8fafc;
+    border: 1px solid #dfe7ef;
+}
+
+body:not(.login-page) .reporte-intento details {
+    background: #ffffff;
+    border: 1px solid #dfe7ef;
+}
+
+body:not(.login-page) .reporte-intento summary,
+body:not(.login-page) .reporte-intento details summary {
+    color: #9a7100;
+}
+
+body:not(.login-page) .reporte-intento span,
+body:not(.login-page) .reporte-intento time {
+    color: #60758a;
+}
+
+body:not(.login-page) .formulario-calificar-complexiva {
+    color: #17324d;
+    background: #edf3f8;
+    border: 1px solid #cfdbe7;
+}
+
+body:not(.login-page) .formulario-calificar-complexiva label {
+    color: #17324d;
+}
+
+body:not(.login-page) .formulario-calificar-complexiva input,
+body:not(.login-page) .formulario-calificar-complexiva textarea {
+    color: #17324d;
+    background: #ffffff;
+    border: 1px solid #bdcad8;
+}
+
+body:not(.login-page) .formulario-calificar-complexiva textarea::placeholder {
+    color: #7b8d9f;
+}
+
+body:not(.login-page) .resumen-calificacion-maestro {
+    color: #28723a;
+}

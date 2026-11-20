@@ -1347,7 +1347,7 @@ function renderizarPreguntasPrueba(preguntas, formato) {
     const opciones = (pregunta.opciones || []).map((opcion, opcionIndice) => {
         const letra = String.fromCharCode(65 + opcionIndice);
         const checked = respuesta === letra ? " checked" : "";
-        return `<label><input type="radio" name="pregunta-sistema-${indicePreguntaPruebaActual}" value="${letra}"${checked}> ${letra}) ${escaparHtml(opcion)}</label>`;
+        return `<label class="opcion-prueba"><input type="radio" name="pregunta-sistema-${indicePreguntaPruebaActual}" value="${letra}"${checked}><span class="opcion-respuesta">${letra}) ${escaparHtml(opcion)}</span></label>`;
     }).join("");
     contenedor.innerHTML = `<fieldset class="pregunta-prueba multiple-prueba"><legend>Pregunta ${indicePreguntaPruebaActual + 1}: ${escaparHtml(pregunta.texto)}</legend>${opciones}</fieldset>`;
     contenedor.querySelectorAll("input[type=radio]").forEach((opcion) => {
