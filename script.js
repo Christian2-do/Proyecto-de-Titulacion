@@ -951,10 +951,6 @@ async function guardarConfiguracionExamen(event) {
         establecerEstadoExamenes("No tienes permiso para cambiar este examen.", true);
         return;
     }
-    if (!firebaseAuth.currentUser) {
-        establecerEstadoExamenes("La sesión de Firebase expiró. Ingresa nuevamente.", true);
-        return;
-    }
     let configuracion;
     try {
         configuracion = leerConfiguracionHorario("editar-abre-examen", "editar-cierra-examen", "editar-limite-examen");
@@ -962,19 +958,37 @@ async function guardarConfiguracionExamen(event) {
         establecerEstadoExamenes(error.message, true);
         return;
     }
-    Object.assign(configuracion, {
-        maestroUid: examen.maestroUid || firebaseAuth.currentUser.uid,
-        maestroCorreo: examen.maestroCorreo || firebaseAuth.currentUser.email
-    });
+    if (typeof firebaseAuth !== "undefined" && firebaseAuth.currentUser) {
+        Object.assign(configuracion, {
+            maestroUid: examen.maestroUid || firebaseAuth.currentUser.uid,
+            maestroCorreo: examen.maestroCorreo || firebaseAuth.currentUser.email
+        });
+    }
+
+    const boton = document.getElementById("boton-guardar-configuracion");
+    if (boton) {
+        boton.disabled = true;
+        boton.textContent = "Guardando...";
+    }
+
     try {
-        if (!examen.id) throw new Error("No se encontró el identificador de este examen en Firebase.");
-        await firebaseDb.collection("examenes").doc(examen.id).update(configuracion);
         Object.assign(examen, configuracion);
         localStorage.setItem("examenes", JSON.stringify(examenes));
-        establecerEstadoExamenes("Configuración guardada. El examen quedó asignado a tu perfil.");
+
+        if (typeof firebaseDb !== "undefined" && typeof firebaseAuth !== "undefined"
+            && firebaseAuth.currentUser && examen.id) {
+            await firebaseDb.collection("examenes").doc(examen.id).update(configuracion);
+        }
+
+        establecerEstadoExamenes("Configuración guardada correctamente.");
         await cargarReportesProfesor();
     } catch (error) {
         establecerEstadoExamenes(`No se pudo guardar la configuración. ${error.message || error.code || ""}`, true);
+    } finally {
+        if (boton) {
+            boton.disabled = false;
+            boton.textContent = "Guardar configuración";
+        }
     }
 }
 
@@ -1408,9 +1422,43 @@ async function finalizarPruebaSistema(motivoEntrega = "entrega_manual") {
         entregaPruebaEnCurso = false;
         document.getElementById("estado-supervision").textContent = "Informe enviado al panel del profesor. No se guardó video.";
         document.getElementById("finalizar-prueba").disabled = true;
-        resultado.textContent = contieneComplexivas
-            ? "Prueba entregada. Las respuestas complexivas quedaron pendientes para que el profesor las califique en sus reportes."
-            : `Prueba entregada. Nota final: ${calificacion.toFixed(2)}/10. El informe quedó disponible para el profesor.`;
+        const duracionSegundos = Math.max(0, Math.floor((Date.now() - inicioPruebaMilisegundos) / 1000));
+        const motivo = motivoEntrega === "tiempo_agotado"
+            ? "Tiempo agotado"
+            : motivoEntrega === "bloqueada_por_cambios"
+                ? "Tres cambios de pestaña"
+                : "Entrega manual";
+        const nota = contieneComplexivas
+            ? "Calificación: Pendiente de revisión"
+            : `Calificación: ${calificacion.toFixed(2)} / 10`;
+        resultado.innerHTML = `
+            <h2>Resultado de la prueba</h2>
+            <strong class="resultado-nota">${nota}</strong>
+            <div class="resultado-informe">
+                <h3>Informe enviado</h3>
+                <p>Examen: ${escaparHtml(examen.nombre || "Prueba")}</p>
+                <p>Duración: ${formatearDuracion(duracionSegundos)}</p>
+                <p>Entrega: ${motivo}</p>
+                <p>Cambios de pestaña: ${cambiosPestana}</p>
+                <p>Variaciones detectadas: ${movimientosCamara}</p>
+            </div>
+            <p id="resultado-redireccion">Volviendo a la página inicial en 8 segundos...</p>
+        `;
+
+        let segundosRestantes = 8;
+        const cuentaRegresiva = setInterval(() => {
+            segundosRestantes -= 1;
+            const indicador = document.getElementById("resultado-redireccion");
+            if (indicador) {
+                indicador.textContent = segundosRestantes > 0
+                    ? `Volviendo a la página inicial en ${segundosRestantes} segundos...`
+                    : "Volviendo a la página inicial...";
+            }
+            if (segundosRestantes <= 0) {
+                clearInterval(cuentaRegresiva);
+                window.location.href = "index.html";
+            }
+        }, 1000);
     } catch (error) {
         resultado.textContent = `No se pudo guardar la prueba. ${error.message || error.code || ""}`;
         botonFinalizar.disabled = false;

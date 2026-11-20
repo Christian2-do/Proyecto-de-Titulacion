@@ -1180,6 +1180,28 @@ button:disabled {
     font-weight: 700;
 }
 
+.resultado-prueba h2,
+.resultado-prueba h3 {
+    margin-top: 0;
+}
+
+.resultado-nota {
+    display: block;
+    margin: 12px 0;
+    font-size: 1.35rem;
+}
+
+.resultado-informe {
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 8px;
+    background: rgba(7, 27, 51, 0.45);
+}
+
+.resultado-informe p {
+    margin: 6px 0;
+}
+
 .sin-preguntas {
     color: rgba(255, 255, 255, 0.75);
 }

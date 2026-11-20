@@ -36,7 +36,7 @@
                 <div class="form-actions">
                     <button type="button" class="btn-primary" id="finalizar-prueba" onclick="finalizarPruebaSistema()" disabled>Entregar prueba</button>
                 </div>
-                <div id="resultado-prueba" class="resultado-prueba" hidden></div>
+                <div id="resultado-prueba" class="resultado-prueba" hidden role="status" aria-live="polite"></div>
             </section>
             <aside class="camera-panel" aria-label="Supervisión de la prueba">
                 <strong>Cámara y supervisión</strong>
@@ -54,6 +54,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=12"></script>
-<script src="script.js?v=17"></script>
+<script src="script.js?v=19"></script>
 </body>
 </html>
