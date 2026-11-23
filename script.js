@@ -18,19 +18,45 @@ let eventosOmitidos = 0;
 let inicioPruebaMilisegundos = null;
 let ultimoEventoMovimiento = 0;
 let monitoreoCamara = null;
-let avisosExamenEnviados = new Set();
-let intervaloAvisosExamen = null;
 const CORREO_ADMINISTRADOR = "christianandrango23.24@gmail.com";
 
 // LOGIN
+function avisar(mensaje, tipo = "info") {
+    const caja = document.getElementById("login-mensaje");
+    if (!caja) { notificar(mensaje); return; }
+    caja.textContent = mensaje;
+    caja.className = `login-mensaje login-mensaje-${tipo}`;
+    caja.hidden = false;
+}
+
+function alternarPassword(boton) {
+    const campo = document.getElementById("password");
+    if (!campo) return;
+    const mostrar = campo.type === "password";
+    campo.type = mostrar ? "text" : "password";
+    boton.setAttribute("aria-label", mostrar ? "Ocultar contraseña" : "Mostrar contraseña");
+}
+
 async function login() {
+    const boton = document.getElementById("boton-login");
+    const caja = document.getElementById("login-mensaje");
+    if (caja) caja.hidden = true;
+    if (boton) { boton.disabled = true; boton.classList.add("cargando"); }
+    try {
+        await iniciarSesion();
+    } finally {
+        if (boton) { boton.disabled = false; boton.classList.remove("cargando"); }
+    }
+}
+
+async function iniciarSesion() {
     const user = document.getElementById("usuario").value.trim().toLowerCase();
     const pass = document.getElementById("password").value;
     const rol = obtenerRolPorCorreo(user);
     sessionStorage.removeItem("sesionSistema");
 
     if (!rol) {
-        alert("Usuario o correo no autorizado");
+        avisar("Usuario o correo no autorizado. Usa tu correo institucional.", "error");
         return;
     }
 
@@ -39,7 +65,7 @@ async function login() {
         if (rol === "admin" && !credencial.user.emailVerified) {
             await credencial.user.sendEmailVerification();
             await firebaseAuth.signOut();
-            alert("Te enviamos un correo para verificar la cuenta administradora. Verifícalo y vuelve a iniciar sesión.");
+            avisar("Te enviamos un correo para verificar la cuenta administradora. Verifícalo y vuelve a iniciar sesión.", "info");
             return;
         }
         if (rol === "admin") await credencial.user.getIdToken(true);
@@ -47,7 +73,7 @@ async function login() {
         sessionStorage.setItem("sesionSistema", JSON.stringify({ correo: user, rol, uid: credencial.user.uid }));
         window.location.href = "dashboard.html?v=12";
     } catch (error) {
-        alert(`No se pudo iniciar sesión o crear la cuenta. Verifica el correo y la contraseña. ${error.message || error.code || ""}`);
+        avisar(`No se pudo iniciar sesión o crear la cuenta. Verifica el correo y la contraseña. ${error.message || error.code || ""}`, "error");
     }
 }
 
@@ -55,17 +81,17 @@ async function restablecerContrasena() {
     const campoCorreo = document.getElementById("usuario");
     const correo = campoCorreo.value.trim().toLowerCase();
     if (!correo) {
-        alert("Escribe tu correo en Nombre de usuario.");
+        avisar("Escribe tu correo institucional para enviarte el enlace de restablecimiento.", "error");
         campoCorreo.focus();
         return;
     }
 
     try {
         await firebaseAuth.sendPasswordResetEmail(correo);
-        alert("Si existe una cuenta con ese correo, recibirás instrucciones para restablecer la contraseña.");
+        avisar("Si existe una cuenta con ese correo, recibirás instrucciones para restablecer la contraseña.", "ok");
     } catch (error) {
         if (error.code === "auth/user-not-found") {
-            alert("Si existe una cuenta con ese correo, recibirás instrucciones para restablecer la contraseña.");
+            avisar("Si existe una cuenta con ese correo, recibirás instrucciones para restablecer la contraseña.", "ok");
             return;
         }
         const mensaje = error.code === "auth/invalid-email"
@@ -73,7 +99,7 @@ async function restablecerContrasena() {
             : error.code === "auth/too-many-requests"
                 ? "Hubo demasiados intentos. Espera un momento y vuelve a intentarlo."
                 : `No se pudo enviar el correo de restablecimiento. ${error.message || error.code || ""}`;
-        alert(mensaje);
+        avisar(mensaje, "error");
     }
 }
 
@@ -128,9 +154,9 @@ async function cargarEstadisticas() {
         totalEnLinea = enLinea.size;
     }
 
-    document.getElementById("total-examenes").textContent = totalExamenes;
-    document.getElementById("total-en-linea").textContent = totalEnLinea;
-    document.getElementById("total-registrados").textContent = totalRegistrados;
+    animarNumero(document.getElementById("total-examenes"), totalExamenes);
+    animarNumero(document.getElementById("total-en-linea"), totalEnLinea);
+    animarNumero(document.getElementById("total-registrados"), totalRegistrados);
 }
 
 function registrarAcceso(correo, rol) {
@@ -167,21 +193,37 @@ async function cargarUsuarios() {
         const snapshot = await firebaseDb.collection("usuarios").get();
         usuarios = snapshot.docs.map((documento) => ({ id: documento.id, ...documento.data() }));
     }
-    lista.innerHTML = usuarios.length ? usuarios.map((usuario) => `
+    lista.innerHTML = usuarios.length ? usuarios.map((usuario) => {
+        const rolTexto = usuario.rol === "admin" ? "Administrador" : usuario.rol === "maestro" ? "Maestro" : "Estudiante";
+        const fecha = usuario.ultimoAcceso && usuario.ultimoAcceso.toDate ? usuario.ultimoAcceso.toDate() : usuario.ultimoAcceso ? new Date(usuario.ultimoAcceso) : null;
+        const textoFecha = fecha && !Number.isNaN(fecha.getTime()) ? fecha.toLocaleString("es-EC") : "Sin registro";
+        const correo = String(usuario.correo || "");
+        const nombre = String(usuario.nombreCompleto || "").trim();
+        const avatar = fotoValida(usuario.fotoPerfil)
+            ? `<img src="${usuario.fotoPerfil}" alt="Foto de ${escaparHtml(nombre || correo)}">`
+            : escaparHtml(obtenerIniciales(nombre, correo));
+        return `
         <article class="usuario-item">
-            <div>
-                <strong>${escaparHtml(usuario.correo)}</strong>
-                <span>${usuario.rol === "admin" ? "Administrador" : usuario.rol === "maestro" ? "Maestro" : "Estudiante"}</span>
+            <div class="avatar-wrap">
+                <span class="avatar avatar-sm">${avatar}</span>
+                <span class="punto-linea${usuario.enLinea ? " activo" : ""}" title="${usuario.enLinea ? "En línea" : "Desconectado"}"></span>
             </div>
-            <p>${usuario.cantidadAccesos} acceso(s) | Último: ${new Date(usuario.ultimoAcceso).toLocaleString("es-EC")}</p>
-        </article>
-    `).join("") : "<p class=\"sin-preguntas\">Todavía no hay accesos registrados.</p>";
+            <div class="usuario-datos">
+                <strong>${escaparHtml(nombre || correo)}</strong>
+                <span class="usuario-correo">${escaparHtml(correo)}</span>
+            </div>
+            <div class="usuario-meta">
+                <span class="chip chip-materia">${rolTexto}</span>
+                <div>${usuario.cantidadAccesos || 0} acceso(s) · Último: ${textoFecha}</div>
+            </div>
+        </article>`;
+    }).join("") : "<p class=\"sin-preguntas\">Todavía no hay accesos registrados.</p>";
 }
 
 async function registrarPersona(event) {
     event.preventDefault();
     if (!esAdministrador()) {
-        alert("Solo el administrador puede registrar personas.");
+        notificar("Solo el administrador puede registrar personas.");
         return;
     }
     const correo = document.getElementById("correo-persona").value.trim().toLowerCase();
@@ -189,17 +231,17 @@ async function registrarPersona(event) {
     const dominioValido = Boolean(rol);
 
     if (!dominioValido) {
-        alert("El correo debe terminar en @estud.tesa.edu.ec o @tesa.edu.ec.");
+        notificar("El correo debe terminar en @estud.tesa.edu.ec o @tesa.edu.ec.");
         return;
     }
     if (typeof firebaseDb === "undefined" || !firebaseAuth.currentUser) {
-        alert("La cuenta admin debe estar autenticada en Firebase. Activa Email/Password y vuelve a entrar como admin.");
+        notificar("La cuenta admin debe estar autenticada en Firebase. Activa Email/Password y vuelve a entrar como admin.");
         return;
     }
 
     await firebaseDb.collection("usuariosPendientes").doc(correo).set({ correo, rol, agregadoPor: firebaseAuth.currentUser.uid, fechaRegistro: firebase.firestore.FieldValue.serverTimestamp() });
     document.getElementById("formulario-usuario").reset();
-    alert("Persona registrada. Podrá crear su cuenta con ese correo institucional.");
+    notificar("Persona registrada. Podrá crear su cuenta con ese correo institucional.");
 }
 
 function obtenerRolPorCorreo(correo) {
@@ -267,6 +309,8 @@ async function cargarPerfil() {
         nombreEstudiantePrueba = nombre;
         if (campo) campo.value = nombre;
         if (bienvenida) bienvenida.textContent = nombre ? `Bienvenido, ${nombre}` : "Bienvenido";
+        fotoPerfilActual = perfil.exists && fotoValida(perfil.data().fotoPerfil) ? perfil.data().fotoPerfil : "";
+        actualizarAvataresPerfil();
     } catch (error) {
         const estado = document.getElementById("estado-perfil");
         if (estado) estado.textContent = `No se pudo cargar el perfil. ${error.message || error.code || ""}`;
@@ -288,8 +332,113 @@ async function guardarPerfil(event) {
         const bienvenida = document.querySelector(".dashboard-card h3");
         if (bienvenida) bienvenida.textContent = `Bienvenido, ${nombre}`;
         estado.textContent = "Perfil guardado.";
+        actualizarAvataresPerfil();
     } catch (error) {
         estado.textContent = `No se pudo guardar el perfil. ${error.message || error.code || ""}`;
+    }
+}
+
+// ===== AVATAR Y FOTO DE PERFIL (opcional) =====
+let fotoPerfilActual = "";
+
+function obtenerIniciales(nombre, correo) {
+    const base = (nombre || "").trim() || String(correo || "").split("@")[0].replace(/[._-]+/g, " ").trim();
+    const partes = base.split(/\s+/).filter(Boolean);
+    if (!partes.length) return "?";
+    const inicial = (partes[0][0] || "") + (partes.length > 1 ? partes[partes.length - 1][0] : "");
+    return inicial.toUpperCase();
+}
+
+function fotoValida(foto) {
+    return typeof foto === "string" && foto.length < 200000 && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(foto);
+}
+
+function pintarAvatar(elemento, nombre, correo, foto) {
+    if (!elemento) return;
+    elemento.textContent = "";
+    if (fotoValida(foto)) {
+        const imagen = document.createElement("img");
+        imagen.src = foto;
+        imagen.alt = nombre ? `Foto de ${nombre}` : "Foto de perfil";
+        elemento.appendChild(imagen);
+    } else {
+        elemento.textContent = obtenerIniciales(nombre, correo);
+    }
+}
+
+function actualizarAvataresPerfil() {
+    const sesion = obtenerSesion();
+    document.querySelectorAll("[data-avatar]").forEach((elemento) => pintarAvatar(elemento, nombreEstudiantePrueba, sesion.correo, fotoPerfilActual));
+    const quitar = document.getElementById("quitar-foto");
+    if (quitar) quitar.hidden = !fotoValida(fotoPerfilActual);
+    const corto = document.getElementById("cuenta-nombre-corto");
+    if (corto) corto.textContent = nombreEstudiantePrueba ? nombreEstudiantePrueba.split(" ")[0] : "Mi cuenta";
+}
+
+function procesarImagenPerfil(archivo, lado = 320) {
+    return new Promise((resolver, rechazar) => {
+        const lector = new FileReader();
+        lector.onerror = () => rechazar(new Error("No se pudo leer la imagen."));
+        lector.onload = () => {
+            const imagen = new Image();
+            imagen.onerror = () => rechazar(new Error("El archivo no es una imagen válida."));
+            imagen.onload = () => {
+                const lienzo = document.createElement("canvas");
+                lienzo.width = lado;
+                lienzo.height = lado;
+                const contexto = lienzo.getContext("2d");
+                const recorte = Math.min(imagen.width, imagen.height);
+                const origenX = (imagen.width - recorte) / 2;
+                const origenY = (imagen.height - recorte) / 2;
+                contexto.fillStyle = "#ffffff";
+                contexto.fillRect(0, 0, lado, lado);
+                contexto.drawImage(imagen, origenX, origenY, recorte, recorte, 0, 0, lado, lado);
+                let calidad = 0.85;
+                let resultado = lienzo.toDataURL("image/jpeg", calidad);
+                while (resultado.length > 120000 && calidad > 0.4) {
+                    calidad -= 0.1;
+                    resultado = lienzo.toDataURL("image/jpeg", calidad);
+                }
+                resolver(resultado);
+            };
+            imagen.src = lector.result;
+        };
+        lector.readAsDataURL(archivo);
+    });
+}
+
+async function seleccionarFotoPerfil(event) {
+    const archivo = event.target.files && event.target.files[0];
+    event.target.value = "";
+    const estado = document.getElementById("estado-perfil");
+    if (!archivo) return;
+    const usuario = typeof firebaseAuth !== "undefined" ? firebaseAuth.currentUser : null;
+    if (!usuario) { estado.textContent = "Inicia sesión para subir tu foto."; return; }
+    if (!/^image\/(jpeg|png|webp)$/.test(archivo.type)) { estado.textContent = "Elige una imagen JPG, PNG o WebP."; return; }
+    if (archivo.size > 10 * 1024 * 1024) { estado.textContent = "La imagen pesa más de 10 MB. Elige una más ligera."; return; }
+    estado.textContent = "Subiendo foto...";
+    try {
+        const foto = await procesarImagenPerfil(archivo);
+        await firebaseDb.collection("usuarios").doc(usuario.uid).set({ fotoPerfil: foto }, { merge: true });
+        fotoPerfilActual = foto;
+        actualizarAvataresPerfil();
+        estado.textContent = "Foto actualizada.";
+    } catch (error) {
+        estado.textContent = `No se pudo guardar la foto. ${error.message || error.code || ""}`;
+    }
+}
+
+async function quitarFotoPerfil() {
+    const usuario = typeof firebaseAuth !== "undefined" ? firebaseAuth.currentUser : null;
+    const estado = document.getElementById("estado-perfil");
+    if (!usuario) return;
+    try {
+        await firebaseDb.collection("usuarios").doc(usuario.uid).update({ fotoPerfil: firebase.firestore.FieldValue.delete() });
+        fotoPerfilActual = "";
+        actualizarAvataresPerfil();
+        estado.textContent = "Foto eliminada.";
+    } catch (error) {
+        estado.textContent = `No se pudo quitar la foto. ${error.message || error.code || ""}`;
     }
 }
 
@@ -304,80 +453,6 @@ function mostrarCalificaciones() {
 
 function cerrarCalificaciones() {
     document.getElementById("calificaciones-panel").hidden = true;
-}
-
-function mostrarExamenes() {
-    const panel = document.querySelector(".examenes-panel");
-    if (!panel) return;
-    panel.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-async function activarNotificacionesExamen() {
-    const boton = document.getElementById("activar-notificaciones");
-    if (!("Notification" in window)) {
-        alert("Este navegador no admite notificaciones.");
-        return;
-    }
-    const permiso = await Notification.requestPermission();
-    if (permiso === "granted") {
-        new Notification("Avisos de exámenes activados", {
-            body: "Recibirás avisos antes de que cierre un examen."
-        });
-        if (boton) {
-            boton.textContent = "Avisos activos";
-            boton.disabled = true;
-        }
-        iniciarAvisosExamenes();
-    } else {
-        if (boton) boton.textContent = "Permiso denegado";
-    }
-}
-
-function iniciarAvisosExamenes() {
-    if (intervaloAvisosExamen) clearInterval(intervaloAvisosExamen);
-    revisarAvisosExamenes();
-    intervaloAvisosExamen = setInterval(revisarAvisosExamenes, 60000);
-}
-
-function revisarAvisosExamenes() {
-    if (!firebaseAuth.currentUser || esMaestro()) return;
-    firebaseDb.collection("examenes").get().then((snapshot) => {
-        const ahora = Date.now();
-        const avisos = [];
-        snapshot.docs.forEach((documento) => {
-            const examen = { id: documento.id, ...documento.data() };
-            if (!examen.cierraEn) return;
-            const cierre = new Date(examen.cierraEn).getTime();
-            if (Number.isNaN(cierre)) return;
-            const minutos = Math.ceil((cierre - ahora) / 60000);
-            if (minutos > 0 && minutos <= 30) {
-                const clave = `${examen.id}-30`;
-                const mensaje = `El examen "${examen.nombre || "Prueba"}" cierra en ${minutos} minuto${minutos === 1 ? "" : "s"}.`;
-                avisos.push(mensaje);
-                if (!avisosExamenEnviados.has(clave) && "Notification" in window && Notification.permission === "granted") {
-                    avisosExamenEnviados.add(clave);
-                    new Notification("Examen por cerrar", { body: mensaje });
-                }
-            } else if (minutos <= 0 && minutos > -15) {
-                const clave = `${examen.id}-cerrado`;
-                const mensaje = `El examen "${examen.nombre || "Prueba"}" cerró.`;
-                avisos.push(mensaje);
-                if (!avisosExamenEnviados.has(clave) && "Notification" in window && Notification.permission === "granted") {
-                    avisosExamenEnviados.add(clave);
-                    new Notification("Examen cerrado", { body: mensaje });
-                }
-            }
-        });
-        const contenedor = document.getElementById("avisos-examenes");
-        if (!contenedor) return;
-        contenedor.hidden = avisos.length === 0;
-        contenedor.replaceChildren();
-        avisos.forEach((mensaje) => {
-            const aviso = document.createElement("p");
-            aviso.textContent = mensaje;
-            contenedor.appendChild(aviso);
-        });
-    }).catch(() => {});
 }
 
 function establecerEstadoCalificaciones(mensaje, error = false) {
@@ -674,7 +749,7 @@ async function guardarCalificacionComplexiva(event, reporte) {
         return { indicePregunta, calificacion, comentario };
     });
     if (calificaciones.some((item) => !Number.isFinite(item.calificacion) || item.calificacion < 0 || item.calificacion > 10)) {
-        alert("Cada respuesta complexiva debe tener una nota entre 0 y 10.");
+        notificar("Cada respuesta complexiva debe tener una nota entre 0 y 10.");
         return;
     }
     const estado = document.createElement("p");
@@ -716,7 +791,7 @@ async function cerrarSesion() {
     try {
         if (typeof firebaseAuth !== "undefined") await firebaseAuth.signOut();
     } catch (error) {
-        alert(`No se pudo cerrar la sesión. ${error.message || error.code || ""}`);
+        notificar(`No se pudo cerrar la sesión. ${error.message || error.code || ""}`);
         return;
     }
     sessionStorage.removeItem("sesionSistema");
@@ -764,10 +839,21 @@ async function cargarExamenes() {
     examenes.forEach((examen, indice) => {
         const tarjeta = document.createElement("article");
         tarjeta.className = "examen-item";
+        const disponibilidad = obtenerEstadoDisponibilidad(examen);
+        const limite = Number(examen.limiteMinutos) >= 1 ? `${Number(examen.limiteMinutos)} min` : "";
         tarjeta.innerHTML = `
-            <div>
+            <div class="examen-icono" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></svg>
+            </div>
+            <div class="examen-info">
                 <h3></h3>
-                <span></span>
+                <div class="examen-meta">
+                    <span class="chip chip-materia"></span>
+                    ${examen.carrera ? '<span class="chip chip-clase"></span>' : ""}
+                    <span class="chip chip-formato"></span>
+                    ${limite ? '<span class="chip chip-limite"></span>' : ""}
+                    <span class="chip chip-estado ${disponibilidad.disponible ? "chip-ok" : "chip-off"}">${disponibilidad.disponible ? "Disponible" : "No disponible"}</span>
+                </div>
                 <p></p>
             </div>
             <div class="examen-actions">
@@ -776,11 +862,30 @@ async function cargarExamenes() {
             </div>
         `;
         tarjeta.querySelector("h3").textContent = examen.nombre;
-        tarjeta.querySelector("span").textContent = `${examen.materia} | ${obtenerTextoFormatoExamen(examen)}`;
-        tarjeta.querySelector("p").textContent = examen.descripcion;
+        tarjeta.querySelector(".chip-materia").textContent = examen.materia;
+        tarjeta.querySelector(".chip-formato").textContent = obtenerTextoFormatoExamen(examen);
+        if (examen.carrera) tarjeta.querySelector(".chip-clase").textContent = examen.carrera;
+        if (limite) tarjeta.querySelector(".chip-limite").textContent = `⏱ ${limite}`;
+        tarjeta.querySelector(".examen-info p").textContent = examen.descripcion;
+        if (!disponibilidad.disponible) tarjeta.querySelector(".chip-estado").title = disponibilidad.mensaje;
         tarjeta.querySelector(".btn-run").addEventListener("click", () => abrirPruebaSistema(indice));
         if (maestro) {
+            tarjeta.classList.add("es-editable");
             tarjeta.querySelector(".btn-download").addEventListener("click", () => descargarExamen(examen));
+            if (examen.inicioManual) {
+                const activar = document.createElement("button");
+                activar.type = "button"; activar.className = examen.iniciado ? "btn-secondary" : "btn-primary";
+                activar.textContent = examen.iniciado ? "Inicio activado" : "Activar examen";
+                activar.disabled = Boolean(examen.iniciado);
+                activar.addEventListener("click", async () => {
+                    examen.iniciado = true;
+                    try { if (examen.id && typeof firebaseDb !== "undefined") await firebaseDb.collection("examenes").doc(examen.id).update({ iniciado: true });
+                        const items = obtenerExamenes(); items[indice].iniciado = true; localStorage.setItem("examenes", JSON.stringify(items));
+                        await cargarExamenes(); notificar("Examen activado: ya está disponible para los estudiantes.", "ok");
+                    } catch (e) { examen.iniciado = false; notificar("No se pudo activar el examen. " + (e.message || ""), "error"); }
+                });
+                tarjeta.querySelector(".examen-actions").prepend(activar);
+            }
             tarjeta.querySelector(".btn-delete").addEventListener("click", () => eliminarExamen(indice));
             tarjeta.addEventListener("click", (event) => {
                 if (!event.target.closest("button")) abrirEditorExamen(indice);
@@ -842,8 +947,11 @@ async function guardarExamen(event) {
         maestroUid: firebaseAuth.currentUser ? firebaseAuth.currentUser.uid : "",
         maestroCorreo: firebaseAuth.currentUser ? firebaseAuth.currentUser.email : ""
     };
+    Object.assign(nuevoExamen, typeof datosClaseExamen === "function" ? datosClaseExamen() : {});
     try {
         Object.assign(nuevoExamen, leerConfiguracionHorario("abre-examen", "cierra-examen", "limite-examen"));
+        nuevoExamen.inicioManual = document.getElementById("inicio-manual-examen").checked;
+        nuevoExamen.iniciado = !nuevoExamen.inicioManual;
     } catch (error) {
         establecerEstadoExamenes(error.message, true);
         return;
@@ -924,7 +1032,7 @@ function descargarExamen(examen) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${nombre}</title>
 <style>
-body{font-family:Arial,sans-serif;background:#edf2f7;color:#17233d;margin:0;padding:32px}.exam{max-width:820px;margin:auto;background:#fff;padding:32px;border-radius:12px;box-shadow:0 4px 18px #17233d33}h1{margin:0 0 8px;color:#244a6d}.meta{color:#7b2c83;font-weight:bold;margin-bottom:18px}.description{padding:14px;background:#f7f1c6;border-left:4px solid #f3c623}.question{display:grid;gap:10px;margin-top:18px;padding:18px;border:1px solid #d5dce5;border-radius:8px}legend{font-weight:bold}.question label{display:block;padding:8px;background:#f5f7fa;border-radius:5px}textarea{width:100%;min-height:110px;box-sizing:border-box;font:inherit;padding:10px;border:1px solid #bbc6d3;border-radius:6px;resize:vertical}.camera{margin-top:20px;padding:18px;background:#17233d;color:#fff;border-radius:8px}.camera video{display:block;width:100%;max-height:280px;background:#000;border-radius:6px;margin:12px 0;object-fit:cover}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}button{border:0;border-radius:6px;padding:11px 16px;background:#f3c623;color:#17233d;font-weight:bold;cursor:pointer}button.secondary{background:#244a6d;color:#fff}.result{margin-top:20px;padding:18px;background:#e5f4e8;border-left:4px solid #218739;font-weight:bold}.empty-state{padding:18px;background:#f5f7fa;border-radius:8px}@media print{.actions,.camera{display:none}body{background:#fff;padding:0}.exam{box-shadow:none}}
+*{box-sizing:border-box}body{font-family:"Segoe UI",system-ui,Arial,sans-serif;background:#f3f5fa;color:#14213d;margin:0;padding:32px 16px}.exam{max-width:840px;margin:auto;background:#fff;padding:36px;border-radius:22px;box-shadow:0 18px 50px #0a204026;border-top:6px solid #7b2c83}h1{margin:0 0 10px;color:#0a2040;font-size:28px;letter-spacing:-.02em}.meta{display:inline-block;color:#6a2472;background:#f7f0f9;font-weight:700;font-size:13px;padding:5px 14px;border-radius:99px;margin-bottom:18px}.description{padding:14px 16px;background:#fff6d1;border-left:4px solid #f3c623;border-radius:10px;color:#5b4700}.question{display:grid;gap:10px;margin-top:20px;padding:22px;border:1px solid #e1e6f0;border-radius:16px;background:#fff}.question h2{margin:0;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#6a2472}legend{font-weight:700;font-size:17px;padding:0 6px;color:#0a2040}.question label{display:block;padding:12px 14px;background:#f8f9fd;border:2px solid #e1e6f0;border-radius:12px;cursor:pointer;transition:.15s}.question label:hover{border-color:#7b2c83;background:#f7f0f9}textarea{width:100%;min-height:120px;font:inherit;padding:12px;border:1.5px solid #cdd5e4;border-radius:12px;resize:vertical}textarea:focus{outline:none;border-color:#7b2c83;box-shadow:0 0 0 4px #7b2c8324}.camera{margin-top:24px;padding:20px;background:linear-gradient(160deg,#0a2040,#17224a);color:#fff;border-radius:18px}.camera video{display:block;width:100%;max-height:280px;background:#000;border-radius:12px;margin:12px 0;object-fit:cover}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}button{border:0;border-radius:10px;padding:12px 18px;background:linear-gradient(135deg,#f3c623,#f0b90a);color:#061427;font-weight:700;font:inherit;font-weight:700;cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}button.secondary{background:#0f2f5c;color:#fff}.result{margin-top:22px;padding:18px;background:#e4f5e8;border-left:4px solid #278a3c;border-radius:10px;font-weight:700}.empty-state{padding:18px;background:#f8f9fd;border-radius:12px}@media print{.actions,.camera{display:none}body{background:#fff;padding:0}.exam{box-shadow:none}}
 </style>
 </head>
 <body>
@@ -958,10 +1066,20 @@ function finishTest(){if(!started)return;const questions=[...document.querySelec
 
 async function eliminarExamen(indiceParaEliminar) {
     const examenes = obtenerExamenes();
+    const examenAEliminar = examenes[indiceParaEliminar];
+    if (!examenAEliminar) return;
+    const confirmado = await confirmarAccion({
+        titulo: "¿Mover a la papelera?",
+        mensaje: `«${examenAEliminar.nombre}» se conservará 30 días en la papelera y podrás restaurarlo cuando quieras.`,
+        confirmar: "Mover a la papelera",
+        peligro: true
+    });
+    if (!confirmado) return;
     try {
         if (typeof firebaseDb !== "undefined") {
             if (!firebaseAuth.currentUser) throw new Error("La sesión de Firebase expiró. Cierra sesión e ingresa nuevamente.");
             if (examenes[indiceParaEliminar]?.id) {
+                if (typeof moverAPapelera === "function") await moverAPapelera(examenes[indiceParaEliminar]);
                 await firebaseDb.collection("examenes").doc(examenes[indiceParaEliminar].id).delete();
             }
         }
@@ -978,7 +1096,7 @@ async function eliminarExamen(indiceParaEliminar) {
             indicePruebaActiva -= 1;
         }
         await cargarExamenes();
-        if (document.getElementById("estado-examenes").hidden) establecerEstadoExamenes("Examen eliminado.");
+        notificar("Examen movido a la papelera. Puedes restaurarlo durante 30 días.", "ok");
     } catch (error) {
         establecerEstadoExamenes(`No se pudo eliminar el examen. ${error.message || error.code || ""}`, true);
     }
@@ -1002,6 +1120,7 @@ function abrirEditorExamen(indice) {
     document.getElementById("editar-abre-examen").value = fechaParaCampo(examen.abreEn);
     document.getElementById("editar-cierra-examen").value = fechaParaCampo(examen.cierraEn);
     document.getElementById("editar-limite-examen").value = examen.limiteMinutos || "";
+    document.getElementById("editar-inicio-manual").checked = Boolean(examen.inicioManual);
     renderizarCamposPregunta(examen.formato, (examen.preguntas || []).length + 1);
     renderizarPreguntasGuardadas(examen.preguntas || [], examen.formato);
     document.getElementById("editor-examen").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1049,11 +1168,14 @@ async function guardarConfiguracionExamen(event) {
 
     try {
         Object.assign(examen, configuracion);
+        examen.inicioManual = document.getElementById("editar-inicio-manual").checked;
+        if (!examen.inicioManual) examen.iniciado = true;
+        else if (examen.iniciado === undefined) examen.iniciado = false;
         localStorage.setItem("examenes", JSON.stringify(examenes));
 
         if (typeof firebaseDb !== "undefined" && typeof firebaseAuth !== "undefined"
             && firebaseAuth.currentUser && examen.id) {
-            await firebaseDb.collection("examenes").doc(examen.id).update(configuracion);
+            await firebaseDb.collection("examenes").doc(examen.id).update(Object.assign({}, configuracion, { inicioManual: examen.inicioManual, iniciado: examen.iniciado }));
         }
 
         establecerEstadoExamenes("Configuración guardada correctamente.");
@@ -1208,6 +1330,9 @@ function obtenerEstadoDisponibilidad(examen) {
     if (cierre !== null && ahora >= cierre) {
         return { disponible: false, mensaje: "El plazo para realizar este examen ya terminó." };
     }
+    if (examen.inicioManual && !examen.iniciado) {
+        return { disponible: false, mensaje: "El examen comenzará cuando el maestro active el inicio." };
+    }
     return { disponible: true, mensaje: "" };
 }
 
@@ -1260,15 +1385,12 @@ function inicializarPaginaPrueba() {
             document.getElementById("prueba-titulo").textContent = examenPruebaEnVentana.nombre || "Prueba";
             document.getElementById("prueba-formato").textContent = `${examenPruebaEnVentana.materia || ""} | ${obtenerTextoFormatoExamen(examenPruebaEnVentana)}`;
             document.getElementById("resultado-prueba").hidden = true;
-            document.getElementById("prueba-examen").classList.remove("resultado-entregado");
             document.getElementById("finalizar-prueba").disabled = true;
             document.getElementById("aviso-cambio-pestana").hidden = true;
             renderizarPreguntasPrueba(preguntasPruebaSistema, examenPruebaEnVentana.formato);
             estado.hidden = true;
             document.getElementById("prueba-examen").hidden = false;
-            const acepto = window.confirm(
-                "Antes de iniciar: la cámara estará activa solo en esta pestaña para supervisión en vivo. No se grabará ni se guardará video. El informe registrará las respuestas, cambios de pestaña y movimientos detectados. ¿Aceptas y deseas comenzar?"
-            );
+            const acepto = await confirmarSupervision();
             if (!acepto) {
                 document.getElementById("camera-sistema-status").textContent = "No aceptaste la supervisión con cámara. La prueba no se inició.";
                 document.getElementById("estado-supervision").textContent = "La cámara no se activó y no se almacena video.";
@@ -1333,41 +1455,28 @@ function renderizarPreguntasPrueba(preguntas, formato) {
     document.getElementById("contador-preguntas").textContent = `Pregunta ${indicePreguntaPruebaActual + 1} de ${preguntas.length}`;
     document.getElementById("pregunta-anterior").disabled = indicePreguntaPruebaActual === 0;
     document.getElementById("pregunta-siguiente").disabled = indicePreguntaPruebaActual === preguntas.length - 1;
+    const barraProgreso = document.getElementById("progreso-prueba-barra");
+    if (barraProgreso) barraProgreso.style.width = `${((indicePreguntaPruebaActual + 1) / preguntas.length) * 100}%`;
 
     if (tipo === "complexiva") {
         contenedor.innerHTML = `<article class="pregunta-prueba complexiva-prueba"><h4>Pregunta ${indicePreguntaPruebaActual + 1}</h4><p>${escaparHtml(pregunta.texto)}</p><textarea class="respuesta-complexiva-prueba" placeholder="Escribe tu respuesta">${escaparHtml(respuesta)}</textarea></article>`;
         contenedor.querySelector("textarea").addEventListener("input", (event) => {
             respuestasPruebaSistema[indicePreguntaPruebaActual] = event.target.value;
-            actualizarEstadoEntregaPrueba();
         });
-        actualizarEstadoEntregaPrueba();
         return;
     }
 
     const opciones = (pregunta.opciones || []).map((opcion, opcionIndice) => {
         const letra = String.fromCharCode(65 + opcionIndice);
         const checked = respuesta === letra ? " checked" : "";
-        return `<label class="opcion-prueba"><input type="radio" name="pregunta-sistema-${indicePreguntaPruebaActual}" value="${letra}"${checked}><span class="opcion-respuesta">${letra}) ${escaparHtml(opcion)}</span></label>`;
+        return `<label class="opcion-prueba"><input type="radio" name="pregunta-sistema-${indicePreguntaPruebaActual}" value="${letra}"${checked}><span class="opcion-letra">${letra}</span><span class="opcion-texto">${escaparHtml(opcion)}</span></label>`;
     }).join("");
-    contenedor.innerHTML = `<fieldset class="pregunta-prueba multiple-prueba"><legend>Pregunta ${indicePreguntaPruebaActual + 1}: ${escaparHtml(pregunta.texto)}</legend>${opciones}</fieldset>`;
+    contenedor.innerHTML = `<fieldset class="pregunta-prueba multiple-prueba"><legend><span class="pregunta-numero">Pregunta ${indicePreguntaPruebaActual + 1}</span><span class="pregunta-texto">${escaparHtml(pregunta.texto)}</span></legend>${opciones}</fieldset>`;
     contenedor.querySelectorAll("input[type=radio]").forEach((opcion) => {
         opcion.addEventListener("change", (event) => {
             respuestasPruebaSistema[indicePreguntaPruebaActual] = event.target.value;
-            actualizarEstadoEntregaPrueba();
         });
     });
-    actualizarEstadoEntregaPrueba();
-}
-
-function actualizarEstadoEntregaPrueba() {
-    const botonFinalizar = document.getElementById("finalizar-prueba");
-    if (!botonFinalizar) return;
-    const todasRespondidas = preguntasPruebaSistema.length > 0
-        && preguntasPruebaSistema.every((_, indice) => {
-            const respuesta = respuestasPruebaSistema[indice];
-            return typeof respuesta === "string" && respuesta.trim().length > 0;
-        });
-    botonFinalizar.disabled = !pruebaIniciada || !todasRespondidas;
 }
 
 function navegarPreguntaPrueba(desplazamiento) {
@@ -1378,7 +1487,89 @@ function navegarPreguntaPrueba(desplazamiento) {
     renderizarPreguntasPrueba(preguntasPruebaSistema, examen ? examen.formato : "opcion-multiple");
 }
 
+function confirmarSupervision() {
+    return new Promise((resolver) => {
+        const modal = document.getElementById("modal-supervision");
+        const aceptar = document.getElementById("modal-aceptar");
+        const rechazar = document.getElementById("modal-rechazar");
+        if (!modal || !aceptar || !rechazar) {
+            resolver(window.confirm("Antes de iniciar: la cámara estará activa solo en esta pestaña para supervisión en vivo. No se grabará ni se guardará video. ¿Aceptas y deseas comenzar?"));
+            return;
+        }
+        const cerrar = (valor) => {
+            modal.hidden = true;
+            aceptar.onclick = null;
+            rechazar.onclick = null;
+            resolver(valor);
+        };
+        modal.hidden = false;
+        aceptar.onclick = () => cerrar(true);
+        rechazar.onclick = () => cerrar(false);
+        aceptar.focus();
+    });
+}
+
+function agregarEventoVisual(tipo, detalle) {
+    const lista = document.getElementById("linea-eventos");
+    if (!lista) return;
+    const elemento = document.createElement("li");
+    if (tipo === "cambio_pestana" || tipo === "cambio_imagen") elemento.className = "alerta";
+    const hora = document.createElement("time");
+    hora.textContent = new Date().toLocaleTimeString("es-EC", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const texto = document.createElement("span");
+    texto.textContent = detalle;
+    elemento.append(hora, texto);
+    lista.prepend(elemento);
+    while (lista.children.length > 8) lista.lastChild.remove();
+}
+
+function actualizarContadoresSupervision() {
+    const pestanas = document.getElementById("contador-pestanas");
+    const variaciones = document.getElementById("contador-variaciones");
+    if (pestanas) pestanas.textContent = `${cambiosPestana}/3`;
+    if (variaciones) variaciones.textContent = String(movimientosCamara);
+    document.getElementById("caja-pestanas")?.classList.toggle("peligro", cambiosPestana > 0);
+    document.getElementById("caja-variaciones")?.classList.toggle("peligro", movimientosCamara > 0);
+}
+
+function establecerChipCamara(clase, texto) {
+    const chip = document.getElementById("chip-camara");
+    if (!chip) return;
+    chip.className = `chip-camara ${clase}`;
+    chip.textContent = texto;
+}
+
+function actualizarMedidorMovimiento(promedio) {
+    const nivel = Math.max(0, Math.min(100, Math.round((promedio / 22) * 70)));
+    const relleno = document.getElementById("medidor-relleno");
+    const valor = document.getElementById("medidor-valor");
+    if (relleno) relleno.style.width = `${nivel}%`;
+    if (valor) valor.textContent = `${nivel}%`;
+}
+
+function destellarCamara() {
+    const marco = document.getElementById("camara-marco");
+    if (!marco) return;
+    marco.classList.remove("alerta");
+    void marco.offsetWidth;
+    marco.classList.add("alerta");
+    setTimeout(() => marco.classList.remove("alerta"), 900);
+}
+
+function mostrarAlertaNeon(titulo, mensaje, nivel) {
+    const caja = document.getElementById("alerta-neon");
+    if (!caja) return;
+    document.getElementById("alerta-titulo").textContent = titulo;
+    document.getElementById("alerta-mensaje").textContent = mensaje;
+    document.querySelectorAll("#alerta-pips span").forEach((punto, indice) => punto.classList.toggle("lleno", indice < nivel));
+    caja.hidden = false;
+    const boton = document.getElementById("alerta-cerrar");
+    boton.onclick = () => { caja.hidden = true; };
+    setTimeout(() => boton.focus(), 0);
+}
+
 function registrarEventoSupervision(tipo, detalle) {
+    agregarEventoVisual(tipo, detalle);
     if (eventosSupervision.length >= 200) {
         eventosOmitidos += 1;
         return;
@@ -1395,15 +1586,17 @@ async function iniciarPruebaSistema() {
         streamCamaraSistema = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         document.getElementById("camera-sistema").srcObject = streamCamaraSistema;
         estado.textContent = "Cámara activa para supervisión local. No se graba ni se guarda video.";
+        establecerChipCamara("activa", "Activa");
         document.getElementById("estado-supervision").textContent = "Supervisión activa; no se almacena video.";
         inicioPruebaMilisegundos = Date.now();
         registrarEventoSupervision("camara_activada", "El estudiante autorizó la cámara; la vista permanece local y no se graba.");
         iniciarMonitoreoCamara();
         pruebaIniciada = true;
-        actualizarEstadoEntregaPrueba();
+        document.getElementById("finalizar-prueba").disabled = false;
         iniciarTemporizadorPrueba(examenPruebaEnVentana);
     } catch (error) {
         detenerCamaraSistema();
+        establecerChipCamara("error", "Sin cámara");
         estado.textContent = `No se inició la prueba. ${error.message || error.name || ""}`;
         document.getElementById("estado-supervision").textContent = "No se activó la cámara; la prueba no comenzó.";
     }
@@ -1417,7 +1610,7 @@ function iniciarTemporizadorPrueba(examen) {
     const actualizar = () => {
         const minutos = Math.floor(segundos / 60).toString().padStart(2, "0");
         const resto = (segundos % 60).toString().padStart(2, "0");
-        indicador.textContent = `Tiempo restante: ${minutos}:${resto}`;
+        indicador.textContent = `⏱ Tiempo restante: ${minutos}:${resto}`;
         if (segundos <= 0) {
             clearInterval(temporizadorPrueba);
             temporizadorPrueba = null;
@@ -1433,16 +1626,6 @@ function iniciarTemporizadorPrueba(examen) {
 
 async function finalizarPruebaSistema(motivoEntrega = "entrega_manual") {
     if (!pruebaIniciada || entregaPruebaEnCurso) return;
-    if (motivoEntrega === "entrega_manual") {
-        const todasRespondidas = preguntasPruebaSistema.every((_, indice) => {
-            const respuesta = respuestasPruebaSistema[indice];
-            return typeof respuesta === "string" && respuesta.trim().length > 0;
-        });
-        if (!todasRespondidas) {
-            actualizarEstadoEntregaPrueba();
-            return;
-        }
-    }
     entregaPruebaEnCurso = true;
     clearInterval(temporizadorPrueba);
     temporizadorPrueba = null;
@@ -1524,7 +1707,6 @@ async function finalizarPruebaSistema(motivoEntrega = "entrega_manual") {
         entregaPruebaEnCurso = false;
         document.getElementById("estado-supervision").textContent = "Informe enviado al panel del profesor. No se guardó video.";
         document.getElementById("finalizar-prueba").disabled = true;
-        document.getElementById("prueba-examen").classList.add("resultado-entregado");
         const duracionSegundos = Math.max(0, Math.floor((Date.now() - inicioPruebaMilisegundos) / 1000));
         const motivo = motivoEntrega === "tiempo_agotado"
             ? "Tiempo agotado"
@@ -1532,25 +1714,23 @@ async function finalizarPruebaSistema(motivoEntrega = "entrega_manual") {
                 ? "Tres cambios de pestaña"
                 : "Entrega manual";
         const nota = contieneComplexivas
-            ? "Pendiente de revisión"
-            : `${calificacion.toFixed(2)} / 10`;
+            ? "Calificación: Pendiente de revisión"
+            : `Calificación: ${calificacion.toFixed(2)} / 10`;
         resultado.innerHTML = `
-            <h2>Resultado de tu prueba</h2>
-            <p class="resultado-etiqueta">Tu calificación</p>
+            <h2>Resultado de la prueba</h2>
             <strong class="resultado-nota">${nota}</strong>
             <div class="resultado-informe">
-                <h3>Informe de la prueba</h3>
-                <p>Examen: ${escaparHtml(examen.nombre || "Prueba")}</p>
-                <p>Duración: ${formatearDuracion(duracionSegundos)}</p>
-                <p>Entrega: ${motivo}</p>
-                <p>Cambios de pestaña: ${cambiosPestana}</p>
-                <p>Variaciones detectadas: ${movimientosCamara}</p>
+                <h3>Informe enviado</h3>
+                <p><span>Examen</span><strong>${escaparHtml(examen.nombre || "Prueba")}</strong></p>
+                <p><span>Duración</span><strong>${formatearDuracion(duracionSegundos)}</strong></p>
+                <p><span>Entrega</span><strong>${motivo}</strong></p>
+                <p><span>Cambios de pestaña</span><strong>${cambiosPestana}</strong></p>
+                <p><span>Variaciones detectadas</span><strong>${movimientosCamara}</strong></p>
             </div>
-            <p id="resultado-redireccion">Volviendo a la página inicial en 5 segundos...</p>
-            <button type="button" class="btn-primary" id="resultado-volver" onclick="window.location.href='index.html'">Volver ahora</button>
+            <p id="resultado-redireccion">Volviendo a la página inicial en 8 segundos...</p>
         `;
 
-        let segundosRestantes = 5;
+        let segundosRestantes = 8;
         const cuentaRegresiva = setInterval(() => {
             segundosRestantes -= 1;
             const indicador = document.getElementById("resultado-redireccion");
@@ -1596,12 +1776,17 @@ function iniciarMonitoreoCamara() {
         if (imagenAnterior) {
             let diferencia = 0;
             for (let indice = 0; indice < imagenActual.length; indice += 4) diferencia += Math.abs(imagenActual[indice] - imagenAnterior[indice]);
-            if (diferencia / (imagenActual.length / 4) > 22 && Date.now() - ultimoEventoMovimiento >= 5000) {
+            const promedioDiferencia = diferencia / (imagenActual.length / 4);
+            actualizarMedidorMovimiento(promedioDiferencia);
+            if (promedioDiferencia > 22 && Date.now() - ultimoEventoMovimiento >= 5000) {
                 movimientosCamara += 1;
                 ultimoEventoMovimiento = Date.now();
                 const detalle = `Variación de imagen detectada por la cámara (${movimientosCamara}).`;
                 document.getElementById("camera-sistema-status").textContent = detalle;
                 registrarEventoSupervision("cambio_imagen", detalle);
+                actualizarContadoresSupervision();
+                destellarCamara();
+                notificar("Variación detectada en la cámara", "alerta", 3200);
             }
         }
         imagenAnterior = new Uint8ClampedArray(imagenActual);
@@ -1619,6 +1804,14 @@ document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
         cambiosPestana += 1;
         registrarEventoSupervision("cambio_pestana", `Cambio de pestaña detectado (${cambiosPestana}).`);
+        actualizarContadoresSupervision();
+        mostrarAlertaNeon(
+            cambiosPestana >= 3 ? "Prueba entregada" : "Saliste de la prueba",
+            cambiosPestana >= 3
+                ? "Llegaste al límite de 3 avisos. Tu prueba se entregó automáticamente y el informe se envió al profesor."
+                : `Detectamos un cambio de pestaña (${cambiosPestana}/3). Permanece en esta ventana: al tercer aviso la prueba se entrega sola.`,
+            cambiosPestana
+        );
         const estado = document.getElementById("camera-sistema-status");
         if (aviso) {
             aviso.hidden = false;
@@ -1655,6 +1848,7 @@ if (window.location.pathname.includes("dashboard.html") || window.location.pathn
     const cuentaRol = document.getElementById("cuenta-rol");
     if (rolElemento) rolElemento.textContent = rolActual === "admin" ? "Administrador" : rolActual === "maestro" ? "Maestro" : "Estudiante";
     if (cuentaCorreo) cuentaCorreo.textContent = sesion.correo || "Cuenta institucional";
+    actualizarAvataresPerfil();
     if (cuentaRol) cuentaRol.textContent = rolElemento ? rolElemento.textContent : "";
     if (vistaPrevia && sesion.rol === "admin" && !new URLSearchParams(window.location.search).has("vista")) vistaPrevia.hidden = false;
     if (!esMaestro()) {
@@ -1672,15 +1866,6 @@ if (window.location.pathname.includes("dashboard.html") || window.location.pathn
         const reportes = document.getElementById("reportes-panel");
         if (reportes) reportes.hidden = false;
         cargarReportesProfesor();
-        const botonAvisos = document.getElementById("activar-notificaciones");
-        if (botonAvisos) botonAvisos.hidden = true;
-    } else if ("Notification" in window && Notification.permission === "granted") {
-        const botonAvisos = document.getElementById("activar-notificaciones");
-        if (botonAvisos) {
-            botonAvisos.textContent = "Avisos activos";
-            botonAvisos.disabled = true;
-        }
-        iniciarAvisosExamenes();
     }
     cargarExamenes();
     document.addEventListener("click", (event) => {
@@ -1726,3 +1911,36 @@ window.addEventListener("beforeunload", (event) => {
     }
 });
 
+
+
+// Recordatorios locales: los avisos se muestran en este navegador si el usuario concede permiso.
+window.activarAlarmasExamen = async function () {
+    if (!("Notification" in window)) { notificar("Este navegador no admite notificaciones del sistema.", "alerta"); return; }
+    const permiso = await Notification.requestPermission();
+    if (permiso !== "granted") { notificar("Activa los permisos de notificación del navegador para recibir alarmas.", "alerta"); return; }
+    localStorage.setItem("alarmasExamenActivadas", "1");
+    notificar("Alarmas activadas en este dispositivo para los exámenes programados.", "ok");
+    revisarAlarmasExamen();
+};
+function revisarAlarmasExamen() {
+    if (localStorage.getItem("alarmasExamenActivadas") !== "1" || !("Notification" in window) || Notification.permission !== "granted") return;
+    let examenes = []; try { examenes = JSON.parse(localStorage.getItem("examenes") || "[]"); } catch (e) { return; }
+    const ahora = Date.now();
+    examenes.forEach((examen) => {
+        const apertura = examen.abreEn ? new Date(examen.abreEn).getTime() : NaN;
+        if (!Number.isFinite(apertura) || apertura < ahora - 60000 || (examen.inicioManual && !examen.iniciado)) return;
+        const restante = apertura - ahora;
+        const base = "alarma:" + (examen.id || examen.nombre) + ":";
+        const clavePrevio = base + "10m";
+        const claveInicio = base + "inicio";
+        if (restante <= 600000 && restante > 30000 && !localStorage.getItem(clavePrevio)) {
+            new Notification("Examen próximo", { body: (examen.nombre || "Examen") + " comienza en aproximadamente 10 minutos." });
+            localStorage.setItem(clavePrevio, "1");
+        }
+        if (restante <= 30000 && restante >= -30000 && !localStorage.getItem(claveInicio)) {
+            new Notification("Examen programado", { body: (examen.nombre || "Examen") + " comienza ahora." });
+            localStorage.setItem(claveInicio, "1");
+        }
+    });
+}
+setInterval(revisarAlarmasExamen, 30000);

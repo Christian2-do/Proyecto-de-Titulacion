@@ -1,18 +1,32 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-tema="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Prueba - Sistema Antifraude</title>
-<link rel="stylesheet" href="styles.css?v=31">
+<meta name="theme-color" content="#1d0b3d">
+<title>Prueba · Sistema Antifraude TESA</title>
+<script>try{document.documentElement.dataset.tema=localStorage.getItem("tema")||"dark"}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=30">
 </head>
 <body class="pagina-prueba">
-<header class="navbar prueba-navbar">
-    <div class="nav-logo">
-        <img src="img/Sistema_antifraude_con_logo_CA-removebg-preview.png" alt="Sistema Antifraude" class="logo-navbar">
-        <h2>SISTEMA <span>ANTIFRAUDIE</span></h2>
+<header class="topbar">
+    <div class="topbar-titulo" style="display:flex;align-items:center;gap:12px;">
+        <span class="marca-logo" style="width:46px;height:46px;border-radius:13px;"><img src="img/Sistema_antifraude_con_logo_CA-removebg-preview.png" alt="Sistema Antifraude"></span>
+        <div><small>Sistema antifraude</small><h1>Prueba en curso</h1></div>
     </div>
-    <a class="btn-secondary volver-panel" href="dashboard.html">Volver al panel</a>
+    <div class="topbar-acciones">
+        <button type="button" class="btn-tema" onclick="alternarTema()" aria-label="Cambiar entre modo claro y oscuro">
+            <svg class="ico-sol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+            <svg class="ico-luna" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+        <a class="btn-secondary volver-panel" href="dashboard.html" style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:12px;font-weight:700;font-size:14px;text-decoration:none;color:var(--text);">
+            <svg class="btn-icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+            Volver al panel
+        </a>
+    </div>
 </header>
 
 <main class="prueba-pagina">
@@ -25,35 +39,87 @@
             </div>
             <p class="aviso-supervision">La cámara solo supervisa en esta pestaña. No se graba ni se guarda video; el informe registra respuestas y eventos de supervisión.</p>
         </div>
+
+        <div class="progreso-prueba" role="presentation"><div class="progreso-prueba-barra" id="progreso-prueba-barra"></div></div>
+
         <div class="prueba-layout">
             <section class="prueba-contenido" aria-label="Preguntas del examen">
                 <div id="preguntas-prueba" class="preguntas-prueba"></div>
                 <div id="navegacion-preguntas" class="navegacion-preguntas" hidden>
-                    <button type="button" class="btn-secondary" id="pregunta-anterior" onclick="navegarPreguntaPrueba(-1)">Anterior</button>
+                    <button type="button" class="btn-secondary" id="pregunta-anterior" onclick="navegarPreguntaPrueba(-1)">← Anterior</button>
                     <span id="contador-preguntas"></span>
-                    <button type="button" class="btn-secondary" id="pregunta-siguiente" onclick="navegarPreguntaPrueba(1)">Siguiente</button>
+                    <button type="button" class="btn-secondary" id="pregunta-siguiente" onclick="navegarPreguntaPrueba(1)">Siguiente →</button>
                 </div>
                 <div class="form-actions">
                     <button type="button" class="btn-primary" id="finalizar-prueba" onclick="finalizarPruebaSistema()" disabled>Entregar prueba</button>
                 </div>
                 <div id="resultado-prueba" class="resultado-prueba" hidden role="status" aria-live="polite"></div>
             </section>
+
             <aside class="camera-panel" aria-label="Supervisión de la prueba">
-                <strong>Cámara y supervisión</strong>
-                <video id="camera-sistema" autoplay muted playsinline></video>
+                <div class="camera-cabecera">
+                    <strong>Cámara y supervisión</strong>
+                    <span id="chip-camara" class="chip-camara">Esperando</span>
+                </div>
+                <div class="camara-marco" id="camara-marco">
+                    <video id="camera-sistema" autoplay muted playsinline></video>
+                    <span class="esquina tl"></span><span class="esquina tr"></span><span class="esquina bl"></span><span class="esquina br"></span>
+                    <span class="camara-scan"></span>
+                    <span class="camara-vivo">EN VIVO</span>
+                </div>
                 <p id="camera-sistema-status">La cámara se activará al entrar en la prueba.</p>
+                <div class="medidor">
+                    <div class="medidor-cabecera"><span>Nivel de movimiento</span><span id="medidor-valor">0%</span></div>
+                    <div class="medidor-pista"><div class="medidor-relleno" id="medidor-relleno"></div></div>
+                </div>
+                <div class="contadores">
+                    <div class="contador" id="caja-pestanas"><strong id="contador-pestanas">0/3</strong><span>Cambios de pestaña</span></div>
+                    <div class="contador" id="caja-variaciones"><strong id="contador-variaciones">0</strong><span>Variaciones de cámara</span></div>
+                </div>
                 <p id="estado-supervision" class="estado-supervision" role="status" aria-live="polite">No se almacena video.</p>
                 <p id="temporizador-prueba" class="temporizador-prueba" hidden></p>
                 <p id="aviso-cambio-pestana" class="aviso-cambio-pestana" role="alert" aria-live="assertive" tabindex="-1" hidden></p>
+                <ul id="linea-eventos" class="linea-eventos" aria-label="Eventos de supervisión"></ul>
             </aside>
         </div>
     </section>
 </main>
 
+<div id="modal-supervision" class="modal-fondo" hidden role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+    <div class="modal-caja">
+        <div class="modal-icono">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+        </div>
+        <h2 id="modal-titulo">Antes de comenzar</h2>
+        <p>Esta prueba cuenta con supervisión para garantizar la integridad académica.</p>
+        <ul>
+            <li>La cámara estará activa solo en esta pestaña.</li>
+            <li>No se graba ni se guarda video.</li>
+            <li>El informe registra respuestas, cambios de pestaña y movimientos detectados.</li>
+            <li>Al tercer cambio de pestaña la prueba se entrega automáticamente.</li>
+        </ul>
+        <div class="modal-acciones">
+            <button type="button" class="btn-secondary" id="modal-rechazar">Cancelar</button>
+            <button type="button" class="btn-primary" id="modal-aceptar">Acepto y comenzar</button>
+        </div>
+    </div>
+</div>
+
+<div id="alerta-neon" class="alerta-neon" hidden role="alertdialog" aria-modal="true" aria-labelledby="alerta-titulo" aria-describedby="alerta-mensaje">
+    <div class="alerta-caja">
+        <div class="alerta-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
+        <h2 id="alerta-titulo">Alerta de integridad</h2>
+        <p id="alerta-mensaje"></p>
+        <div class="alerta-pips" id="alerta-pips" aria-hidden="true"><span></span><span></span><span></span></div>
+        <button type="button" class="btn-primary" id="alerta-cerrar">Entendido, volver a la prueba</button>
+    </div>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=13"></script>
-<script src="script.js?v=24"></script>
+<script src="firebase-config.js?v=12"></script>
+<script src="ui.js?v=30"></script>
+<script src="script.js?v=30"></script>
 </body>
 </html>

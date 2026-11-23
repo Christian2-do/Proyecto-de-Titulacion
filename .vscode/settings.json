@@ -16,5 +16,6 @@
             "username": "sistema_antifraude",
             "password": ""
         }
-    ]
+    ],
+    "liveServer.settings.port": 5504
 }

@@ -1,209 +1,420 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-tema="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard - Sistema Antifraude</title>
-<link rel="stylesheet" href="styles.css?v=31">
+<meta name="theme-color" content="#1d0b3d">
+<title>Panel · Sistema Antifraude TESA</title>
+<script>try{document.documentElement.dataset.tema=localStorage.getItem("tema")||"dark"}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=30">
 </head>
-<body>
+<body class="app">
 
-<div class="navbar">
-    <nav class="navbar-navigation" aria-label="Navegación principal">
-        <button type="button" class="navbar-link" onclick="mostrarExamenes()">Exámenes</button>
-        <button type="button" class="navbar-link" onclick="mostrarCalificaciones()">Calificaciones</button>
+<div class="menu-fondo" onclick="alternarMenuLateral()"></div>
+
+<aside class="sidebar" id="sidebar" aria-label="Menú principal">
+    <div class="sidebar-marca">
+        <div class="marca-logo"><img src="img/Sistema_antifraude_con_logo_CA-removebg-preview.png" alt="Sistema Antifraude"></div>
+        <div><strong>SISTEMA</strong><span>ANTIFRAUDE</span></div>
+    </div>
+
+    <nav class="sidebar-nav" id="sidebar-nav">
+        <button type="button" class="nav-item" data-vista="inicio" data-roles="estudiante maestro admin">
+            <span class="nav-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+            <span class="nav-texto">Inicio</span>
+        </button>
+        <button type="button" class="nav-item" data-vista="examenes" data-roles="estudiante maestro admin">
+            <span class="nav-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></svg></span>
+            <span class="nav-texto">Exámenes</span>
+        </button>
+        <button type="button" class="nav-item" data-vista="calificaciones" data-roles="estudiante">
+            <span class="nav-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></span>
+            <span class="nav-texto">Mis calificaciones</span>
+        </button>
+        <button type="button" class="nav-item" data-vista="clases" data-roles="estudiante maestro admin">
+            <span class="nav-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg></span>
+            <span class="nav-texto" id="nav-texto-clases">Clases</span>
+        </button>
+
+        <p class="nav-etiqueta" data-roles="maestro admin">Gestión</p>
+        <button type="button" class="nav-item" data-vista="reportes" data-roles="maestro admin">
+            <span class="nav-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg></span>
+            <span class="nav-texto">Reportes</span>
+        </button>
+        <button type="button" class="nav-item" data-vista="asistencia" data-roles="maestro admin">
+            <span class="nav-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg></span>
+            <span class="nav-texto">Asistencia</span>
+            <span class="nav-insignia" id="insignia-asistencia" hidden>0</span>
+        </button>
+        <button type="button" class="nav-item" data-vista="personas" data-roles="admin">
+            <span class="nav-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+            <span class="nav-texto">Personas</span>
+        </button>
+        <button type="button" class="nav-item" data-vista="papelera" data-roles="maestro admin">
+            <span class="nav-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></span>
+            <span class="nav-texto">Papelera</span>
+        </button>
     </nav>
-    <div class="navbar-actions">
-        <img src="img/Tecnologico_TESA-removebg-preview.png" alt="Tecnológico San Antonio Tesa" class="tecnologico-navbar">
-        <button type="button" id="activar-notificaciones" class="btn-secondary navbar-alerta" onclick="activarNotificacionesExamen()">Activar avisos</button>
-        <div class="cuenta-menu">
-            <button type="button" id="cuenta-menu-boton" class="btn-secondary" aria-expanded="false" aria-controls="cuenta-menu-panel" onclick="alternarMenuCuenta(event)">Cuenta</button>
-            <div id="cuenta-menu-panel" class="cuenta-menu-panel" hidden>
-                <strong id="cuenta-correo"></strong>
-                <span id="cuenta-rol"></span>
-                <form id="formulario-perfil" onsubmit="guardarPerfil(event)">
-                    <label for="perfil-nombre">Nombre completo</label>
-                    <input type="text" id="perfil-nombre" autocomplete="name" maxlength="120" required>
-                    <button type="submit" class="btn-secondary">Guardar perfil</button>
-                    <p id="estado-perfil" role="status" aria-live="polite"></p>
-                </form>
-                <button type="button" class="btn-secondary" onclick="mostrarCalificaciones()">Mis calificaciones</button>
-                <button type="button" class="btn-cerrar-sesion" onclick="cerrarSesion()">Cerrar sesión</button>
+
+    <div class="sidebar-pie">
+        <div class="marca-tesa-mini"><img src="img/Tecnologico_TESA-removebg-preview.png" alt="Tecnológico San Antonio Tesa"></div>
+        <small>San Antonio TESA</small>
+    </div>
+</aside>
+
+<div class="app-main">
+    <header class="topbar">
+        <button type="button" class="btn-menu" onclick="alternarMenuLateral()" aria-label="Abrir menú">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+        </button>
+        <div class="topbar-titulo">
+            <small>Sistema antifraude</small>
+            <h1 id="titulo-vista">Inicio</h1>
+        </div>
+        <div class="topbar-acciones">
+            <div class="reloj" id="reloj" aria-hidden="true"></div>
+            <button type="button" class="btn-tema" onclick="alternarTema()" aria-label="Cambiar entre modo claro y oscuro">
+                <svg class="ico-sol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+                <svg class="ico-luna" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+            </button>
+            <div class="cuenta-menu">
+                <button type="button" id="cuenta-menu-boton" class="btn-secondary" aria-expanded="false" aria-controls="cuenta-menu-panel" aria-label="Menú de cuenta" onclick="alternarMenuCuenta(event)">
+                    <span class="avatar" data-avatar aria-hidden="true"></span>
+                    <span class="texto-cuenta" id="cuenta-nombre-corto">Mi cuenta</span>
+                    <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div id="cuenta-menu-panel" class="cuenta-menu-panel" hidden>
+                    <div class="cuenta-cabecera">
+                        <span class="avatar avatar-lg" data-avatar aria-hidden="true"></span>
+                        <div><strong id="cuenta-correo"></strong><span id="cuenta-rol"></span></div>
+                    </div>
+                    <div class="perfil-foto">
+                        <div class="perfil-foto-acciones">
+                            <input type="file" id="perfil-foto-input" class="visualmente-oculto" accept="image/png,image/jpeg,image/webp" onchange="seleccionarFotoPerfil(event)">
+                            <label for="perfil-foto-input" class="btn-foto">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg>
+                                Subir foto
+                            </label>
+                            <button type="button" id="quitar-foto" class="btn-quitar-foto" onclick="quitarFotoPerfil()" hidden>Quitar</button>
+                            <small>Opcional · JPG, PNG o WebP</small>
+                        </div>
+                    </div>
+                    <form id="formulario-perfil" onsubmit="guardarPerfil(event)">
+                        <label for="perfil-nombre">Nombre completo</label>
+                        <input type="text" id="perfil-nombre" autocomplete="name" maxlength="120" placeholder="Nombres y apellidos" required>
+                        <button type="submit" class="btn-primary">Guardar perfil</button>
+                        <p id="estado-perfil" role="status" aria-live="polite"></p>
+                    </form>
+                    <button type="button" class="btn-cerrar-sesion" onclick="cerrarSesion()">Cerrar sesión</button>
+                </div>
             </div>
         </div>
-    </div>
-</div>
+    </header>
 
-<div class="dashboard">
-    <div class="dashboard-content">
-        <aside id="avisos-examenes" class="avisos-examenes" aria-live="polite" hidden></aside>
-        <section id="calificaciones-panel" class="calificaciones-panel" hidden aria-labelledby="calificaciones-titulo">
-            <div class="panel-heading">
-                <div>
-                    <h2 id="calificaciones-titulo">Mis calificaciones</h2>
-                    <p>Resultados de tus pruebas realizadas.</p>
+    <main class="dashboard">
+        <div class="dashboard-content">
+
+            <!-- ========== INICIO ========== -->
+            <section class="vista" id="vista-inicio" data-vista="inicio">
+                <div class="dashboard-card">
+                    <span class="avatar avatar-xl" data-avatar aria-hidden="true"></span>
+                    <div class="hero-texto">
+                        <span id="rol-usuario" class="rol-usuario"></span>
+                        <span class="saludo" id="saludo-hora">Hola</span>
+                        <h3>Bienvenido, Usuario</h3>
+                        <p>Sistema de evaluación antifraude TESA</p>
+                    </div>
+                    <div class="hero-asistencia" id="hero-asistencia" hidden>
+                        <span class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                        <div><small>Asistencia de hoy</small><strong id="asistencia-hoy-hora">Registrando…</strong></div>
+                    </div>
                 </div>
-                <button type="button" class="btn-secondary" onclick="cerrarCalificaciones()">Cerrar</button>
-            </div>
-            <p id="estado-calificaciones" class="estado-mensaje" role="status" aria-live="polite"></p>
-            <div id="lista-calificaciones" class="lista-calificaciones"></div>
-        </section>
 
-        <section id="estadisticas-panel" class="estadisticas-panel" hidden aria-labelledby="estadisticas-titulo">
-            <h2 id="estadisticas-titulo">Resumen del sistema</h2>
-            <div class="estadisticas-grid">
-                <article class="estadistica-item">
-                    <strong id="total-examenes">0</strong>
-                    <span>Pruebas subidas</span>
-                </article>
-                <article class="estadistica-item">
-                    <strong id="total-en-linea">0</strong>
-                    <span>Personas en línea</span>
-                </article>
-                <article class="estadistica-item">
-                    <strong id="total-registrados">0</strong>
-                    <span>Personas registradas</span>
-                </article>
-            </div>
-        </section>
+                <h2 class="titulo-seccion">Accesos rápidos</h2>
+                <div id="accesos-rapidos" class="accesos-rapidos"></div>
 
-        <section id="vista-previa-panel" class="vista-previa-panel" hidden aria-labelledby="vista-previa-titulo">
-            <div>
-                <h2 id="vista-previa-titulo">Vista previa</h2>
-                <p>Revisa cómo verá el sistema cada tipo de usuario.</p>
-            </div>
-            <div class="vista-previa-actions">
-                <button type="button" class="btn-secondary" onclick="abrirVistaPrevia('estudiante')">Vista estudiante</button>
-                <button type="button" class="btn-secondary" onclick="abrirVistaPrevia('maestro')">Vista maestro</button>
-            </div>
-        </section>
+                <section id="estadisticas-panel" class="estadisticas-panel" hidden aria-labelledby="estadisticas-titulo">
+                    <h2 id="estadisticas-titulo">Resumen del sistema</h2>
+                    <div class="estadisticas-grid">
+                        <article class="estadistica-item">
+                            <span class="estadistica-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></span>
+                            <strong id="total-examenes">0</strong><span>Pruebas subidas</span>
+                        </article>
+                        <article class="estadistica-item">
+                            <span class="estadistica-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></svg></span>
+                            <strong id="total-en-linea">0</strong><span>Personas en línea</span>
+                        </article>
+                        <article class="estadistica-item">
+                            <span class="estadistica-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+                            <strong id="total-registrados">0</strong><span>Personas registradas</span>
+                        </article>
+                        <article class="estadistica-item">
+                            <span class="estadistica-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg></span>
+                            <strong id="total-clases">0</strong><span>Clases asignadas</span>
+                        </article>
+                    </div>
+                </section>
 
-        <section id="usuarios-panel" class="usuarios-panel" hidden aria-labelledby="usuarios-titulo">
-            <div class="panel-heading">
-                <div>
-                    <h2 id="usuarios-titulo">Agregar y administrar estudiantes</h2>
-                    <p>Registra cuentas institucionales y consulta los usuarios registrados.</p>
-                </div>
-            </div>
-            <form id="formulario-usuario" class="formulario-examen" onsubmit="registrarPersona(event)">
-                <h3>Agregar estudiante o maestro</h3>
-                <label for="correo-persona">Correo institucional</label>
-                <input type="email" id="correo-persona" placeholder="persona@estud.tesa.edu.ec o persona@tesa.edu.ec" oninput="actualizarRolPersona()" required>
-                <label for="rol-persona">Rol</label>
-                <select id="rol-persona" required>
-                    <option value="estudiante">Estudiante</option>
-                    <option value="maestro">Maestro</option>
-                </select>
-                <div class="form-actions">
-                    <button type="submit" class="btn-primary">Registrar persona</button>
-                </div>
-            </form>
-            <div id="lista-usuarios" class="lista-usuarios"></div>
-        </section>
+                <section id="resumen-asistencia-hoy" class="panel resumen-asistencia-hoy" hidden aria-labelledby="resumen-hoy-titulo">
+                    <div class="panel-heading">
+                        <div>
+                            <h2 id="resumen-hoy-titulo">Reporte de asistencia de hoy</h2>
+                            <p>Se actualiza en vivo cuando alguien ingresa al sistema.</p>
+                        </div>
+                        <button type="button" class="btn-secondary" onclick="mostrarVista('asistencia')">Ver reporte completo</button>
+                    </div>
+                    <div class="chips-fila" id="resumen-hoy"></div>
+                    <div class="ausentes" id="ausentes-hoy" hidden></div>
+                </section>
 
-        <div class="dashboard-card">
-            <h3>Bienvenido, Usuario</h3>
-            <span id="rol-usuario" class="rol-usuario"></span>
-            <p>Sistema de evaluación antifraude TESA</p>
+                <section id="vista-previa-panel" class="vista-previa-panel" hidden aria-labelledby="vista-previa-titulo">
+                    <div>
+                        <h2 id="vista-previa-titulo">Vista previa</h2>
+                        <p>Revisa cómo verá el sistema cada tipo de usuario.</p>
+                    </div>
+                    <div class="vista-previa-actions">
+                        <button type="button" class="btn-secondary" onclick="abrirVistaPrevia('estudiante')">Vista estudiante</button>
+                        <button type="button" class="btn-secondary" onclick="abrirVistaPrevia('maestro')">Vista maestro</button>
+                    </div>
+                </section>
+
+                <section class="panel panel-seguridad" aria-labelledby="seguridad-titulo">
+                    <h2 id="seguridad-titulo">Protección antifraude</h2>
+                    <p>Estas medidas están activas durante cada prueba.</p>
+                    <ul class="lista-seguridad">
+                        <li><span class="punto"></span>Supervisión por cámara en vivo</li>
+                        <li><span class="punto"></span>Detección de cambio de pestaña</li>
+                        <li><span class="punto"></span>Copiar y pegar bloqueados</li>
+                        <li><span class="punto"></span>Entrega automática al 3.er aviso</li>
+                        <li><span class="punto"></span>Sin grabación ni almacenamiento de video</li>
+                        <li><span class="punto"></span>Informe de supervisión para el maestro</li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- ========== EXÁMENES ========== -->
+            <section class="vista" id="vista-examenes" data-vista="examenes" hidden>
+                <section class="examenes-panel" aria-labelledby="examenes-titulo">
+                    <div class="panel-heading">
+                        <div>
+                            <h2 id="examenes-titulo">Mis exámenes</h2>
+                            <p>Administra los exámenes disponibles para el sistema.</p>
+                        </div>
+                        <button type="button" class="btn-secondary" onclick="activarAlarmasExamen()">Activar alarmas</button>
+                        <button type="button" class="btn-primary btn-add" onclick="mostrarFormularioExamen()">
+                            <svg class="btn-icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                            Agregar examen
+                        </button>
+                    </div>
+                    <p id="estado-examenes" class="estado-mensaje" role="status" aria-live="polite" hidden></p>
+
+                    <form id="formulario-examen" class="formulario-examen" onsubmit="guardarExamen(event)" hidden>
+                        <h3>Nuevo examen</h3>
+                        <label for="clase-examen">Clase (opcional)</label>
+                        <select id="clase-examen" onchange="alAsignarClaseExamen()"><option value="">Sin clase asignada</option></select>
+                        <label for="nombre-examen">Nombre del examen</label>
+                        <input type="text" id="nombre-examen" placeholder="Ej. Evaluación de seguridad" required>
+                        <label for="materia-examen">Materia</label>
+                        <input type="text" id="materia-examen" placeholder="Ej. Cultura general" required>
+                        <label for="formato-examen">Formato del examen</label>
+                        <select id="formato-examen" required>
+                            <option value="opcion-multiple">Opción múltiple</option>
+                            <option value="complexiva">Complexiva</option>
+                        </select>
+                        <label for="descripcion-examen">Descripción</label>
+                        <textarea id="descripcion-examen" rows="3" placeholder="Describe brevemente el examen" required></textarea>
+                        <h4>Disponibilidad y tiempo (opcional)</h4>
+                        <label for="abre-examen">Abrir examen</label>
+                        <input type="datetime-local" id="abre-examen">
+                        <label for="cierra-examen">Cerrar examen</label>
+                        <input type="datetime-local" id="cierra-examen">
+                        <label class="checkline"><input type="checkbox" id="inicio-manual-examen"> El maestro deberá activar el examen para iniciar</label>
+                        <label for="limite-examen">Límite de tiempo en minutos</label>
+                        <input type="number" id="limite-examen" min="1" max="480" placeholder="Sin límite">
+                        <div class="form-actions">
+                            <button type="button" class="btn-secondary" onclick="ocultarFormularioExamen()">Cancelar</button>
+                            <button type="submit" class="btn-primary">Guardar examen</button>
+                        </div>
+                    </form>
+
+                    <div id="lista-examenes" class="lista-examenes"></div>
+
+                    <section id="editor-examen" class="editor-examen" hidden aria-labelledby="editor-titulo">
+                        <div class="editor-heading">
+                            <div>
+                                <h3 id="editor-titulo">Editar examen</h3>
+                                <p id="editor-formato"></p>
+                            </div>
+                            <button type="button" class="btn-secondary" onclick="cerrarEditorExamen()">Cerrar</button>
+                        </div>
+                        <form id="configuracion-examen" class="configuracion-examen" onsubmit="guardarConfiguracionExamen(event)">
+                            <h4>Disponibilidad y límite</h4>
+                            <p>Sin fechas, el examen queda disponible siempre. Guardar también asigna el examen a tu perfil.</p>
+                            <label for="editar-abre-examen">Abrir examen</label>
+                            <input type="datetime-local" id="editar-abre-examen">
+                            <label for="editar-cierra-examen">Cerrar examen</label>
+                            <input type="datetime-local" id="editar-cierra-examen">
+                            <label class="checkline"><input type="checkbox" id="editar-inicio-manual"> El maestro activa el inicio manualmente</label>
+                            <label for="editar-limite-examen">Límite de tiempo en minutos</label>
+                            <input type="number" id="editar-limite-examen" min="1" max="480" placeholder="Sin límite">
+                            <div class="form-actions">
+                                <button type="submit" id="boton-guardar-configuracion" class="btn-primary">Guardar configuración</button>
+                            </div>
+                        </form>
+                        <div class="editor-acciones">
+                            <button type="button" id="boton-agregar-pregunta" class="btn-primary" onclick="mostrarFormularioPregunta()">
+                                <svg class="btn-icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                                Agregar pregunta
+                            </button>
+                        </div>
+                        <form id="formulario-pregunta" onsubmit="guardarPregunta(event)" hidden>
+                            <label for="tipo-pregunta">Tipo de pregunta</label>
+                            <select id="tipo-pregunta" onchange="actualizarTipoPregunta()" required>
+                                <option value="opcion-multiple">Opción múltiple</option>
+                                <option value="complexiva">Complexiva / respuesta abierta</option>
+                            </select>
+                            <div id="campos-pregunta"></div>
+                            <div class="form-actions">
+                                <button type="button" class="btn-secondary" onclick="cancelarPregunta()">Cancelar</button>
+                                <button type="submit" class="btn-primary">Guardar pregunta</button>
+                            </div>
+                        </form>
+                        <div id="preguntas-guardadas" class="preguntas-guardadas"></div>
+                    </section>
+                </section>
+            </section>
+
+            <!-- ========== CALIFICACIONES ========== -->
+            <section class="vista" id="vista-calificaciones" data-vista="calificaciones" hidden>
+                <section id="calificaciones-panel" class="calificaciones-panel" aria-labelledby="calificaciones-titulo">
+                    <div class="panel-heading">
+                        <div>
+                            <h2 id="calificaciones-titulo">Mis calificaciones</h2>
+                            <p>Resultados de tus pruebas realizadas.</p>
+                        </div>
+                    </div>
+                    <p id="estado-calificaciones" class="estado-mensaje" role="status" aria-live="polite"></p>
+                    <div id="lista-calificaciones" class="lista-calificaciones"></div>
+                </section>
+            </section>
+
+            <!-- ========== CLASES ========== -->
+            <section class="vista" id="vista-clases" data-vista="clases" hidden>
+                <section class="panel" aria-labelledby="clases-titulo">
+                    <div class="panel-heading">
+                        <div>
+                            <h2 id="clases-titulo">Clases</h2>
+                            <p id="clases-descripcion">Asignaturas y carreras.</p>
+                        </div>
+                        <button type="button" id="boton-nueva-clase" class="btn-primary btn-add" onclick="mostrarFormularioClase()" hidden>
+                            <svg class="btn-icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                            Nueva clase
+                        </button>
+                    </div>
+                    <form id="formulario-clase" class="formulario-clase" onsubmit="guardarClase(event)" hidden>
+                        <h3>Asignar una clase a un maestro</h3>
+                        <div><label for="clase-carrera">Carrera</label><input type="text" id="clase-carrera" maxlength="80" placeholder="Ej. Desarrollo de Software" required></div>
+                        <div><label for="clase-asignatura">Asignatura</label><input type="text" id="clase-asignatura" maxlength="80" placeholder="Ej. Bases de datos" required></div>
+                        <div><label for="clase-ciclo">Ciclo / paralelo</label><input type="text" id="clase-ciclo" maxlength="40" placeholder="Ej. 3.º ciclo · A"></div>
+                        <div><label for="clase-maestro">Maestro</label><select id="clase-maestro" required><option value="">Selecciona un maestro</option></select></div>
+                        <div class="form-actions">
+                            <button type="button" class="btn-secondary" onclick="ocultarFormularioClase()">Cancelar</button>
+                            <button type="submit" class="btn-primary">Guardar clase</button>
+                        </div>
+                    </form>
+                    <p id="estado-clases" class="estado-mensaje" role="status" aria-live="polite"></p>
+                    <div id="lista-clases" class="lista-clases"></div>
+                </section>
+            </section>
+
+            <!-- ========== REPORTES ========== -->
+            <section class="vista" id="vista-reportes" data-vista="reportes" hidden>
+                <section id="reportes-panel" class="reportes-panel" aria-labelledby="reportes-titulo">
+                    <div class="panel-heading">
+                        <div>
+                            <h2 id="reportes-titulo">Reportes de pruebas</h2>
+                            <p>Informes en tiempo real con respuestas, supervisión y calificaciones pendientes.</p>
+                        </div>
+                        <button type="button" class="btn-secondary" onclick="cargarReportesProfesor()">Actualizar</button>
+                    </div>
+                    <p id="estado-reportes" class="estado-mensaje" role="status" aria-live="polite"></p>
+                    <div id="lista-reportes" class="lista-reportes"></div>
+                </section>
+            </section>
+
+            <!-- ========== ASISTENCIA ========== -->
+            <section class="vista" id="vista-asistencia" data-vista="asistencia" hidden>
+                <section class="panel" aria-labelledby="asistencia-titulo">
+                    <div class="panel-heading">
+                        <div>
+                            <h2 id="asistencia-titulo">Asistencia</h2>
+                            <p>Se registra automáticamente cuando un estudiante o maestro ingresa al sistema.</p>
+                        </div>
+                        <button type="button" class="btn-secondary" onclick="exportarAsistenciaCSV()">Exportar CSV</button>
+                    </div>
+                    <div class="filtros">
+                        <div><label for="asistencia-fecha">Fecha</label><input type="date" id="asistencia-fecha"></div>
+                        <div><label for="asistencia-clase">Clase</label><select id="asistencia-clase"><option value="">Todos los ingresos del día</option></select></div>
+                        <button type="button" class="btn-primary" onclick="cargarAsistencia()">Consultar</button>
+                    </div>
+                    <div id="resumen-asistencia" class="resumen-chips"></div>
+                    <div id="lista-asistencia" class="lista-asistencia"></div>
+                </section>
+            </section>
+
+            <!-- ========== PERSONAS ========== -->
+            <section class="vista" id="vista-personas" data-vista="personas" hidden>
+                <section id="usuarios-panel" class="usuarios-panel" hidden aria-labelledby="usuarios-titulo">
+                    <div class="panel-heading">
+                        <div>
+                            <h2 id="usuarios-titulo">Personas registradas</h2>
+                            <p>Usuarios que han ingresado correctamente al sistema.</p>
+                        </div>
+                    </div>
+                    <form id="formulario-usuario" class="formulario-examen" onsubmit="registrarPersona(event)">
+                        <h3>Agregar estudiante o maestro</h3>
+                        <label for="correo-persona">Correo institucional</label>
+                        <input type="email" id="correo-persona" placeholder="persona@estud.tesa.edu.ec o persona@tesa.edu.ec" oninput="actualizarRolPersona()" required>
+                        <label for="rol-persona">Rol</label>
+                        <select id="rol-persona" required>
+                            <option value="estudiante">Estudiante</option>
+                            <option value="maestro">Maestro</option>
+                        </select>
+                        <div class="form-actions"><button type="submit" class="btn-primary">Registrar persona</button></div>
+                    </form>
+                    <div id="lista-usuarios" class="lista-usuarios"></div>
+                </section>
+            </section>
+
+            <!-- ========== PAPELERA ========== -->
+            <section class="vista" id="vista-papelera" data-vista="papelera" hidden>
+                <section class="panel" aria-labelledby="papelera-titulo">
+                    <div class="panel-heading">
+                        <div>
+                            <h2 id="papelera-titulo">Papelera</h2>
+                            <p>Los exámenes eliminados se conservan 30 días antes de borrarse definitivamente.</p>
+                        </div>
+                        <button type="button" class="btn-secondary" onclick="cargarPapelera()">Actualizar</button>
+                    </div>
+                    <div class="aviso-papelera">🗂️ Puedes restaurar un examen en cualquier momento durante los 30 días siguientes a su eliminación.</div>
+                    <p id="estado-papelera" class="estado-mensaje" role="status" aria-live="polite"></p>
+                    <div id="lista-papelera" class="lista-papelera"></div>
+                </section>
+            </section>
+
         </div>
-
-        <section class="examenes-panel" aria-labelledby="examenes-titulo">
-            <div class="panel-heading">
-                <div>
-                    <h2 id="examenes-titulo">Mis exámenes</h2>
-                    <p>Administra los exámenes disponibles para el sistema.</p>
-                </div>
-                <button type="button" class="btn-primary btn-add" onclick="mostrarFormularioExamen()">+ Agregar examen</button>
-            </div>
-            <p id="estado-examenes" class="estado-mensaje" role="status" aria-live="polite" hidden></p>
-
-            <form id="formulario-examen" class="formulario-examen" onsubmit="guardarExamen(event)" hidden>
-                <h3>Nuevo examen</h3>
-                <label for="nombre-examen">Nombre del examen</label>
-                <input type="text" id="nombre-examen" placeholder="Ej. Evaluación de seguridad" required>
-                <label for="materia-examen">Materia</label>
-                <input type="text" id="materia-examen" placeholder="Ej. Cultura general" required>
-                <label for="formato-examen">Formato del examen</label>
-                <select id="formato-examen" required>
-                    <option value="opcion-multiple">Opción múltiple</option>
-                    <option value="complexiva">Complexiva</option>
-                </select>
-                <label for="descripcion-examen">Descripción</label>
-                <textarea id="descripcion-examen" rows="3" placeholder="Describe brevemente el examen" required></textarea>
-                <h4>Disponibilidad y tiempo (opcional)</h4>
-                <label for="abre-examen">Abrir examen</label>
-                <input type="datetime-local" id="abre-examen">
-                <label for="cierra-examen">Cerrar examen</label>
-                <input type="datetime-local" id="cierra-examen">
-                <label for="limite-examen">Límite de tiempo en minutos</label>
-                <input type="number" id="limite-examen" min="1" max="480" placeholder="Sin límite">
-                <div class="form-actions">
-                    <button type="button" class="btn-secondary" onclick="ocultarFormularioExamen()">Cancelar</button>
-                    <button type="submit" class="btn-primary">Guardar examen</button>
-                </div>
-            </form>
-
-            <section id="reportes-panel" class="reportes-panel" hidden aria-labelledby="reportes-titulo">
-                <div class="panel-heading">
-                    <div>
-                        <h2 id="reportes-titulo">Reportes de pruebas</h2>
-                        <p>Informes en tiempo real con respuestas, supervisión y calificaciones pendientes.</p>
-                    </div>
-                    <button type="button" class="btn-secondary" onclick="cargarReportesProfesor()">Actualizar</button>
-                </div>
-                <p id="estado-reportes" class="estado-mensaje" role="status" aria-live="polite"></p>
-                <div id="lista-reportes" class="lista-reportes"></div>
-            </section>
-
-            <div id="lista-examenes" class="lista-examenes"></div>
-
-            <section id="editor-examen" class="editor-examen" hidden aria-labelledby="editor-titulo">
-                <div class="editor-heading">
-                    <div>
-                        <h3 id="editor-titulo">Editar examen</h3>
-                        <p id="editor-formato"></p>
-                    </div>
-                    <button type="button" class="btn-secondary" onclick="cerrarEditorExamen()">Cerrar</button>
-                </div>
-                <form id="configuracion-examen" class="configuracion-examen" onsubmit="guardarConfiguracionExamen(event)">
-                    <h4>Disponibilidad y límite</h4>
-                    <p>Sin fechas, el examen queda disponible siempre. Guardar también asigna el examen a tu perfil.</p>
-                    <label for="editar-abre-examen">Abrir examen</label>
-                    <input type="datetime-local" id="editar-abre-examen">
-                    <label for="editar-cierra-examen">Cerrar examen</label>
-                    <input type="datetime-local" id="editar-cierra-examen">
-                    <label for="editar-limite-examen">Límite de tiempo en minutos</label>
-                    <input type="number" id="editar-limite-examen" min="1" max="480" placeholder="Sin límite">
-                    <div class="form-actions">
-                        <button type="submit" id="boton-guardar-configuracion" class="btn-primary">Guardar configuración</button>
-                    </div>
-                </form>
-                <div class="editor-acciones">
-                    <button type="button" id="boton-agregar-pregunta" class="btn-primary" onclick="mostrarFormularioPregunta()">+ Agregar pregunta</button>
-                </div>
-                <form id="formulario-pregunta" onsubmit="guardarPregunta(event)" hidden>
-                    <label for="tipo-pregunta">Tipo de pregunta</label>
-                    <select id="tipo-pregunta" onchange="actualizarTipoPregunta()" required>
-                        <option value="opcion-multiple">Opción múltiple</option>
-                        <option value="complexiva">Complexiva / respuesta abierta</option>
-                    </select>
-                    <div id="campos-pregunta"></div>
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="cancelarPregunta()">Cancelar</button>
-                        <button type="submit" class="btn-primary">Guardar pregunta</button>
-                    </div>
-                </form>
-                <div id="preguntas-guardadas" class="preguntas-guardadas"></div>
-            </section>
-
-        </section>
-    </div>
+    </main>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=13"></script>
-<script src="script.js?v=24"></script>
+<script src="firebase-config.js?v=12"></script>
+<script src="ui.js?v=30"></script>
+<script src="script.js?v=30"></script>
+<script src="modulos.js?v=30"></script>
 </body>
 </html>

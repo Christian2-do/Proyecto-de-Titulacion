@@ -33,9 +33,19 @@ service cloud.firestore {
       return correoAdminVerificado();
     }
 
-    function examenExiste(examenId) {
+    function propietarioDeExamen(examenId) {
       return autenticado()
-        && exists(/databases/$(database)/documents/examenes/$(examenId));
+        && exists(/databases/$(database)/documents/examenes/$(examenId))
+        && get(/databases/$(database)/documents/examenes/$(examenId)).data.maestroUid == request.auth.uid;
+    }
+
+    function perfilValido() {
+      return (!request.resource.data.keys().hasAny(["nombreCompleto"])
+          || (request.resource.data.nombreCompleto is string && request.resource.data.nombreCompleto.size() <= 120))
+        && (!request.resource.data.keys().hasAny(["fotoPerfil"])
+          || (request.resource.data.fotoPerfil is string
+            && request.resource.data.fotoPerfil.size() <= 150000
+            && request.resource.data.fotoPerfil.matches("data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+")));
     }
 
     match /usuarios/{uid} {
@@ -44,27 +54,24 @@ service cloud.firestore {
         && request.resource.data.correo == request.auth.token.email
         && rolPermitido(request.resource.data.rol)
         && request.resource.data.keys().hasOnly([
-          "correo", "rol", "primerAcceso", "ultimoAcceso", "enLinea", "cantidadAccesos", "nombreCompleto"
+          "correo", "rol", "primerAcceso", "ultimoAcceso", "enLinea", "cantidadAccesos", "nombreCompleto", "fotoPerfil"
         ])
-        && (!request.resource.data.keys().hasAny(["nombreCompleto"])
-          || (request.resource.data.nombreCompleto is string && request.resource.data.nombreCompleto.size() <= 120));
+        && perfilValido();
       allow update: if autenticado()
         && request.auth.uid == uid
         && request.resource.data.correo == resource.data.correo
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "ultimoAcceso", "enLinea", "cantidadAccesos", "ultimaActividad", "nombreCompleto"
+          "ultimoAcceso", "enLinea", "cantidadAccesos", "ultimaActividad", "nombreCompleto", "fotoPerfil"
         ])
-        && (!request.resource.data.keys().hasAny(["nombreCompleto"])
-          || (request.resource.data.nombreCompleto is string && request.resource.data.nombreCompleto.size() <= 120))
+        && perfilValido()
         || (correoAdminVerificado()
           && request.auth.uid == uid
           && request.resource.data.correo == request.auth.token.email
           && request.resource.data.rol == "admin"
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            "rol", "ultimoAcceso", "enLinea", "cantidadAccesos", "ultimaActividad", "nombreCompleto"
+            "rol", "ultimoAcceso", "enLinea", "cantidadAccesos", "ultimaActividad", "nombreCompleto", "fotoPerfil"
           ])
-          && (!request.resource.data.keys().hasAny(["nombreCompleto"])
-            || (request.resource.data.nombreCompleto is string && request.resource.data.nombreCompleto.size() <= 120)));
+          && perfilValido());
       allow read: if administrador() || maestro() || (autenticado() && request.auth.uid == uid);
     }
 
@@ -74,7 +81,7 @@ service cloud.firestore {
 
     match /examenes/{examenId} {
       allow read: if autenticado();
-      allow create: if maestro() && request.resource.data.maestroUid == request.auth.uid;
+      allow create: if maestro() && (request.resource.data.maestroUid == request.auth.uid || administrador());
       allow update: if administrador()
         || (maestro()
           && (resource.data.maestroUid == request.auth.uid
@@ -96,7 +103,7 @@ service cloud.firestore {
         && request.resource.data.estudianteCorreo == request.auth.token.email
         && request.resource.data.nombreCompleto
           == get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.nombreCompleto
-        && examenExiste(request.resource.data.examenId)
+        && propietarioDeExamen(request.resource.data.examenId)
         && request.resource.data.maestroUid == get(/databases/$(database)/documents/examenes/$(request.resource.data.examenId)).data.maestroUid
         && request.resource.data.respuestas is list
         && request.resource.data.respuestasDetalle is list
@@ -124,6 +131,36 @@ service cloud.firestore {
           && request.resource.data.estado == "calificada"
           && request.resource.data.calificadaPorUid == request.auth.uid
           && request.resource.data.fechaCalificacion == request.time);
+    }
+
+    // ---------- Clases: el administrador asigna asignaturas a cada maestro ----------
+    match /clases/{claseId} {
+      allow read: if autenticado();
+      allow create, update, delete: if administrador();
+    }
+
+    // ---------- Asistencia: un registro por persona y por día, solo se crea ----------
+    match /asistencias/{asistenciaId} {
+      allow read: if administrador() || maestro()
+        || (autenticado() && asistenciaId.matches(request.auth.uid + "_.*"));
+      allow create: if autenticado()
+        && asistenciaId == request.auth.uid + "_" + request.resource.data.dia
+        && request.resource.data.keys().hasOnly(["uid", "correo", "nombre", "rol", "dia", "fecha"])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.correo == request.auth.token.email
+        && request.resource.data.dia is string && request.resource.data.dia.size() == 10
+        && request.resource.data.rol in ["admin", "maestro", "estudiante"]
+        && request.resource.data.nombre is string && request.resource.data.nombre.size() <= 120
+        && request.resource.data.fecha == request.time;
+      allow update, delete: if false;
+    }
+
+    // ---------- Papelera: exámenes eliminados (se conservan 30 días) ----------
+    match /papelera/{itemId} {
+      allow create: if maestro() && request.resource.data.eliminadoPorUid == request.auth.uid;
+      allow read, delete: if administrador()
+        || (maestro() && resource.data.eliminadoPorUid == request.auth.uid);
+      allow update: if false;
     }
   }
 }
