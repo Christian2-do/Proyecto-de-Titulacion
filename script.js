@@ -18,6 +18,10 @@ let eventosOmitidos = 0;
 let inicioPruebaMilisegundos = null;
 let ultimoEventoMovimiento = 0;
 let monitoreoCamara = null;
+let sesionMonitoreoEstudiante = null;
+let suscripcionMonitoreoDocente = null;
+let conexionesMonitoreoDocente = new Map();
+const ICE_SERVERS_MONITOREO = [{ urls: "stun:stun.l.google.com:19302" }];
 const CORREO_ADMINISTRADOR = "christianandrango23.24@gmail.com";
 
 // LOGIN
@@ -27,6 +31,14 @@ function avisar(mensaje, tipo = "info") {
     caja.textContent = mensaje;
     caja.className = `login-mensaje login-mensaje-${tipo}`;
     caja.hidden = false;
+}
+
+function leerTextoValidado(id, etiqueta, maximo, minimo = 1) {
+    const valor = document.getElementById(id).value.trim();
+    if (!valor) throw new Error(`Completa el campo «${etiqueta}».`);
+    if (valor.length < minimo) throw new Error(`${etiqueta} debe tener al menos ${minimo} caracteres.`);
+    if (valor.length > maximo) throw new Error(`${etiqueta} no puede superar ${maximo} caracteres.`);
+    return valor;
 }
 
 function alternarPassword(boton) {
@@ -234,20 +246,29 @@ async function registrarPersona(event) {
         notificar("El correo debe terminar en @estud.tesa.edu.ec o @tesa.edu.ec.");
         return;
     }
+    if (rol === "admin" || document.getElementById("rol-persona").value !== rol) {
+        notificar("El rol seleccionado no corresponde al correo institucional.", "error");
+        return;
+    }
     if (typeof firebaseDb === "undefined" || !firebaseAuth.currentUser) {
         notificar("La cuenta admin debe estar autenticada en Firebase. Activa Email/Password y vuelve a entrar como admin.");
         return;
     }
 
-    await firebaseDb.collection("usuariosPendientes").doc(correo).set({ correo, rol, agregadoPor: firebaseAuth.currentUser.uid, fechaRegistro: firebase.firestore.FieldValue.serverTimestamp() });
-    document.getElementById("formulario-usuario").reset();
-    notificar("Persona registrada. Podrá crear su cuenta con ese correo institucional.");
+    try {
+        await firebaseDb.collection("usuariosPendientes").doc(correo).set({ correo, rol, agregadoPor: firebaseAuth.currentUser.uid, fechaRegistro: firebase.firestore.FieldValue.serverTimestamp() });
+        document.getElementById("formulario-usuario").reset();
+        notificar("Persona registrada. Podrá crear su cuenta con ese correo institucional.");
+    } catch (error) {
+        notificar(`No se pudo registrar la persona. ${error.message || error.code || ""}`, "error");
+    }
 }
 
 function obtenerRolPorCorreo(correo) {
+    correo = String(correo || "").trim().toLowerCase();
     if (correo === CORREO_ADMINISTRADOR) return "admin";
-    if (correo.endsWith("@estud.tesa.edu.ec")) return "estudiante";
-    if (correo.endsWith("@tesa.edu.ec")) return "maestro";
+    if (/^[^@\s]+@estud\.tesa\.edu\.ec$/.test(correo)) return "estudiante";
+    if (/^[^@\s]+@tesa\.edu\.ec$/.test(correo)) return "maestro";
     return "";
 }
 
@@ -322,8 +343,12 @@ async function guardarPerfil(event) {
     const usuario = typeof firebaseAuth !== "undefined" ? firebaseAuth.currentUser : null;
     const nombre = document.getElementById("perfil-nombre").value.trim();
     const estado = document.getElementById("estado-perfil");
-    if (!usuario || !nombre) {
-        estado.textContent = "Escribe tu nombre completo e inicia sesión para guardar el perfil.";
+    if (!usuario) {
+        estado.textContent = "Inicia sesión para guardar el perfil.";
+        return;
+    }
+    if (nombre.length < 2 || nombre.length > 120) {
+        estado.textContent = "El nombre completo debe tener entre 2 y 120 caracteres.";
         return;
     }
     try {
@@ -350,7 +375,7 @@ function obtenerIniciales(nombre, correo) {
 }
 
 function fotoValida(foto) {
-    return typeof foto === "string" && foto.length < 200000 && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(foto);
+    return typeof foto === "string" && foto.length <= 150000 && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(foto);
 }
 
 function pintarAvatar(elemento, nombre, correo, foto) {
@@ -398,6 +423,10 @@ function procesarImagenPerfil(archivo, lado = 320) {
                 while (resultado.length > 120000 && calidad > 0.4) {
                     calidad -= 0.1;
                     resultado = lienzo.toDataURL("image/jpeg", calidad);
+                }
+                if (resultado.length > 150000) {
+                    rechazar(new Error("La imagen procesada supera el límite permitido por el sistema."));
+                    return;
                 }
                 resolver(resultado);
             };
@@ -704,6 +733,7 @@ function formatearDuracion(segundos) {
 function crearFormularioCalificacion(reporte, preguntasComplexivas) {
     const formulario = document.createElement("form");
     formulario.className = "formulario-calificar-complexiva";
+    formulario.dataset.totalCalificaciones = String(preguntasComplexivas.length);
     const titulo = document.createElement("strong");
     titulo.textContent = "Calificar respuestas complexivas (0 a 10 por pregunta)";
     formulario.appendChild(titulo);
@@ -723,6 +753,7 @@ function crearFormularioCalificacion(reporte, preguntasComplexivas) {
         nota.setAttribute("aria-label", `Nota de la pregunta ${indice + 1}`);
         comentario.rows = 2;
         comentario.placeholder = "Comentario para el estudiante (opcional)";
+        comentario.maxLength = 1000;
         comentario.dataset.comentarioPregunta = String(indice);
         comentario.setAttribute("aria-label", `Comentario de la pregunta ${indice + 1}`);
         grupo.append(label, nota, comentario);
@@ -748,7 +779,9 @@ async function guardarCalificacionComplexiva(event, reporte) {
         const comentario = formulario.querySelector(`[data-comentario-pregunta="${indicePregunta}"]`).value.trim();
         return { indicePregunta, calificacion, comentario };
     });
-    if (calificaciones.some((item) => !Number.isFinite(item.calificacion) || item.calificacion < 0 || item.calificacion > 10)) {
+    if (calificaciones.length !== Number(formulario.dataset.totalCalificaciones)
+        || entradas.some((entrada) => !entrada.value.trim())
+        || calificaciones.some((item) => !Number.isFinite(item.calificacion) || item.calificacion < 0 || item.calificacion > 10)) {
         notificar("Cada respuesta complexiva debe tener una nota entre 0 y 10.");
         return;
     }
@@ -777,6 +810,16 @@ async function guardarCalificacionComplexiva(event, reporte) {
 function calcularCalificacionFinal(totalPreguntas, respuestasCorrectas, calificacionesComplexivas) {
     if (!Number.isInteger(totalPreguntas) || totalPreguntas < 1) {
         throw new Error("El examen no tiene un total válido de preguntas.");
+    }
+    if (!Number.isInteger(respuestasCorrectas) || respuestasCorrectas < 0
+        || respuestasCorrectas > totalPreguntas
+        || !Array.isArray(calificacionesComplexivas)
+        || calificacionesComplexivas.length > totalPreguntas
+        || respuestasCorrectas + calificacionesComplexivas.length !== totalPreguntas
+        || calificacionesComplexivas.some((item) =>
+            !Number.isFinite(item.calificacion) || item.calificacion < 0 || item.calificacion > 10
+        )) {
+        throw new Error("Las calificaciones ingresadas no corresponden a las preguntas del examen.");
     }
     const suma = respuestasCorrectas * 10
         + calificacionesComplexivas.reduce((total, item) => total + item.calificacion, 0);
@@ -939,16 +982,21 @@ async function guardarExamen(event) {
         establecerEstadoExamenes("Solo el maestro puede agregar exámenes.", true);
         return;
     }
-    const nuevoExamen = {
-        nombre: document.getElementById("nombre-examen").value.trim(),
-        materia: document.getElementById("materia-examen").value.trim(),
-        formato: document.getElementById("formato-examen").value,
-        descripcion: document.getElementById("descripcion-examen").value.trim(),
-        maestroUid: firebaseAuth.currentUser ? firebaseAuth.currentUser.uid : "",
-        maestroCorreo: firebaseAuth.currentUser ? firebaseAuth.currentUser.email : ""
-    };
-    Object.assign(nuevoExamen, typeof datosClaseExamen === "function" ? datosClaseExamen() : {});
+    let nuevoExamen;
     try {
+        const formato = document.getElementById("formato-examen").value;
+        if (!["opcion-multiple", "complexiva"].includes(formato)) {
+            throw new Error("Selecciona un formato de examen válido.");
+        }
+        nuevoExamen = {
+            nombre: leerTextoValidado("nombre-examen", "El nombre del examen", 120),
+            materia: leerTextoValidado("materia-examen", "La materia", 100),
+            formato,
+            descripcion: leerTextoValidado("descripcion-examen", "La descripción", 1000),
+            maestroUid: firebaseAuth.currentUser ? firebaseAuth.currentUser.uid : "",
+            maestroCorreo: firebaseAuth.currentUser ? firebaseAuth.currentUser.email : ""
+        };
+        Object.assign(nuevoExamen, typeof datosClaseExamen === "function" ? datosClaseExamen() : {});
         Object.assign(nuevoExamen, leerConfiguracionHorario("abre-examen", "cierra-examen", "limite-examen"));
         nuevoExamen.inicioManual = document.getElementById("inicio-manual-examen").checked;
         nuevoExamen.iniciado = !nuevoExamen.inicioManual;
@@ -1228,16 +1276,16 @@ function renderizarCamposPregunta(formato, numeroPregunta = 1) {
     campos.innerHTML = `
         <h4>Pregunta ${numeroPregunta}</h4>
         <label for="texto-pregunta">Pregunta</label>
-        <textarea id="texto-pregunta" rows="3" placeholder="Escribe la pregunta" required></textarea>
+        <textarea id="texto-pregunta" rows="3" maxlength="1000" placeholder="Escribe la pregunta" required></textarea>
         ${esComplexiva ? `
             <label for="respuesta-complexiva">Respuesta esperada</label>
-            <textarea id="respuesta-complexiva" rows="5" placeholder="Escribe la respuesta o criterios de evaluación" required></textarea>
+            <textarea id="respuesta-complexiva" rows="5" maxlength="3000" placeholder="Escribe la respuesta o criterios de evaluación" required></textarea>
         ` : `
             <label>Respuestas</label>
-            <input type="text" id="opcion-a" placeholder="Respuesta A" required>
-            <input type="text" id="opcion-b" placeholder="Respuesta B" required>
-            <input type="text" id="opcion-c" placeholder="Respuesta C" required>
-            <input type="text" id="opcion-d" placeholder="Respuesta D" required>
+            <input type="text" id="opcion-a" maxlength="300" placeholder="Respuesta A" required>
+            <input type="text" id="opcion-b" maxlength="300" placeholder="Respuesta B" required>
+            <input type="text" id="opcion-c" maxlength="300" placeholder="Respuesta C" required>
+            <input type="text" id="opcion-d" maxlength="300" placeholder="Respuesta D" required>
             <label for="respuesta-correcta">Respuesta correcta</label>
             <select id="respuesta-correcta" required>
                 <option value="A">Respuesta A</option>
@@ -1265,17 +1313,34 @@ async function guardarPregunta(event) {
         return;
     }
     const tipo = document.getElementById("tipo-pregunta").value;
+    if (!["opcion-multiple", "complexiva"].includes(tipo)) {
+        establecerEstadoExamenes("Selecciona un tipo de pregunta válido.", true);
+        return;
+    }
     const esComplexiva = tipo === "complexiva";
-    const pregunta = {
-        texto: document.getElementById("texto-pregunta").value.trim(),
-        tipo
-    };
-
-    if (esComplexiva) {
-        pregunta.respuesta = document.getElementById("respuesta-complexiva").value.trim();
-    } else {
-        pregunta.opciones = ["A", "B", "C", "D"].map((letra) => document.getElementById(`opcion-${letra.toLowerCase()}`).value.trim());
-        pregunta.correcta = document.getElementById("respuesta-correcta").value;
+    let pregunta;
+    try {
+        pregunta = {
+            texto: leerTextoValidado("texto-pregunta", "El enunciado", 1000),
+            tipo
+        };
+        if (esComplexiva) {
+            pregunta.respuesta = leerTextoValidado("respuesta-complexiva", "La respuesta esperada", 3000);
+        } else {
+            pregunta.opciones = ["A", "B", "C", "D"].map((letra) =>
+                leerTextoValidado(`opcion-${letra.toLowerCase()}`, `La opción ${letra}`, 300)
+            );
+            if (new Set(pregunta.opciones.map((opcion) => opcion.toLocaleLowerCase())).size !== pregunta.opciones.length) {
+                throw new Error("Las cuatro opciones deben ser diferentes.");
+            }
+            pregunta.correcta = document.getElementById("respuesta-correcta").value;
+            if (!["A", "B", "C", "D"].includes(pregunta.correcta)) {
+                throw new Error("Selecciona una respuesta correcta válida.");
+            }
+        }
+    } catch (error) {
+        establecerEstadoExamenes(error.message, true);
+        return;
     }
 
     examen.preguntas = examen.preguntas || [];
@@ -1387,6 +1452,11 @@ function inicializarPaginaPrueba() {
             document.getElementById("resultado-prueba").hidden = true;
             document.getElementById("finalizar-prueba").disabled = true;
             document.getElementById("aviso-cambio-pestana").hidden = true;
+            const errorRespuestas = document.getElementById("error-respuestas-prueba");
+            if (errorRespuestas) {
+                errorRespuestas.hidden = true;
+                errorRespuestas.textContent = "";
+            }
             renderizarPreguntasPrueba(preguntasPruebaSistema, examenPruebaEnVentana.formato);
             estado.hidden = true;
             document.getElementById("prueba-examen").hidden = false;
@@ -1429,7 +1499,7 @@ function abrirPruebaSistema(indice) {
 }
 
 function cerrarPruebaSistema() {
-    detenerCamaraSistema();
+    detenerCamaraSistema().catch((error) => console.error("No se pudo cerrar la cámara de la prueba.", error));
     clearInterval(temporizadorPrueba);
     temporizadorPrueba = null;
     indicePruebaActiva = null;
@@ -1462,6 +1532,7 @@ function renderizarPreguntasPrueba(preguntas, formato) {
         contenedor.innerHTML = `<article class="pregunta-prueba complexiva-prueba"><h4>Pregunta ${indicePreguntaPruebaActual + 1}</h4><p>${escaparHtml(pregunta.texto)}</p><textarea class="respuesta-complexiva-prueba" placeholder="Escribe tu respuesta">${escaparHtml(respuesta)}</textarea></article>`;
         contenedor.querySelector("textarea").addEventListener("input", (event) => {
             respuestasPruebaSistema[indicePreguntaPruebaActual] = event.target.value;
+            actualizarAvisoRespuestasPrueba();
         });
         return;
     }
@@ -1475,8 +1546,39 @@ function renderizarPreguntasPrueba(preguntas, formato) {
     contenedor.querySelectorAll("input[type=radio]").forEach((opcion) => {
         opcion.addEventListener("change", (event) => {
             respuestasPruebaSistema[indicePreguntaPruebaActual] = event.target.value;
+            actualizarAvisoRespuestasPrueba();
         });
     });
+}
+
+function indicesPreguntasSinRespuesta() {
+    return preguntasPruebaSistema.reduce((faltantes, pregunta, indice) => {
+        const respuesta = respuestasPruebaSistema[indice];
+        const tipo = pregunta.tipo || examenPruebaEnVentana?.formato || "opcion-multiple";
+        const respondida = tipo === "complexiva"
+            ? typeof respuesta === "string" && respuesta.trim().length > 0
+            : typeof respuesta === "string"
+                && /^[A-D]$/.test(respuesta)
+                && Array.isArray(pregunta.opciones)
+                && Boolean(String(pregunta.opciones[respuesta.charCodeAt(0) - 65] || "").trim());
+        if (!respondida) faltantes.push(indice);
+        return faltantes;
+    }, []);
+}
+
+function mensajePreguntasSinRespuesta(cantidad) {
+    const preguntas = cantidad === 1 ? "pregunta" : "preguntas";
+    return `Faltan ${cantidad} ${preguntas} por responder. Completa todas antes de entregar.`;
+}
+
+function actualizarAvisoRespuestasPrueba() {
+    const aviso = document.getElementById("error-respuestas-prueba");
+    if (!aviso || aviso.hidden) return;
+    const faltantes = indicesPreguntasSinRespuesta();
+    aviso.hidden = faltantes.length === 0;
+    aviso.textContent = faltantes.length
+        ? mensajePreguntasSinRespuesta(faltantes.length)
+        : "";
 }
 
 function navegarPreguntaPrueba(desplazamiento) {
@@ -1493,7 +1595,7 @@ function confirmarSupervision() {
         const aceptar = document.getElementById("modal-aceptar");
         const rechazar = document.getElementById("modal-rechazar");
         if (!modal || !aceptar || !rechazar) {
-            resolver(window.confirm("Antes de iniciar: la cámara estará activa solo en esta pestaña para supervisión en vivo. No se grabará ni se guardará video. ¿Aceptas y deseas comenzar?"));
+            resolver(window.confirm("Antes de iniciar: el maestro responsable podrá ver tu cámara en tiempo real durante la prueba. No se grabará ni se guardará video y no recibirás video del maestro. ¿Aceptas y deseas comenzar?"));
             return;
         }
         const cerrar = (valor) => {
@@ -1577,25 +1679,309 @@ function registrarEventoSupervision(tipo, detalle) {
     eventosSupervision.push({ tipo, detalle, fecha: new Date().toISOString() });
 }
 
+function esperarRecoleccionCandidatos(pc) {
+    if (pc.iceGatheringState === "complete") return Promise.resolve();
+    return new Promise((resolver, rechazar) => {
+        const finalizar = () => {
+            clearTimeout(limite);
+            pc.removeEventListener("icegatheringstatechange", alCambiarEstado);
+        };
+        const alCambiarEstado = () => {
+            if (pc.iceGatheringState !== "complete") return;
+            finalizar();
+            resolver();
+        };
+        const limite = setTimeout(() => {
+            finalizar();
+            rechazar(new Error("No se pudieron preparar las conexiones de video."));
+        }, 15000);
+        pc.addEventListener("icegatheringstatechange", alCambiarEstado);
+        alCambiarEstado();
+    });
+}
+
+function actualizarEstadoCamaraEstudiante(mensaje) {
+    const estado = document.getElementById("camera-sistema-status");
+    if (estado) estado.textContent = mensaje;
+}
+
+async function responderOfertaDocente(estadoSesion, oferta) {
+    const ofertaId = oferta && oferta.ofertaId;
+    if (!ofertaId || !oferta.sdp || estadoSesion.ofertaIdProcesada === ofertaId || estadoSesion.ofertaIdProcesando === ofertaId) return;
+    estadoSesion.ofertaIdProcesando = ofertaId;
+    if (estadoSesion.conexion) estadoSesion.conexion.close();
+
+    const conexion = new RTCPeerConnection({ iceServers: ICE_SERVERS_MONITOREO });
+    estadoSesion.conexion = conexion;
+    estadoSesion.ofertaIdProcesada = ofertaId;
+    conexion.onconnectionstatechange = () => {
+        if (sesionMonitoreoEstudiante !== estadoSesion) return;
+        if (conexion.connectionState === "connected") {
+            actualizarEstadoCamaraEstudiante("Cámara transmitiéndose en vivo al maestro responsable.");
+        } else if (conexion.connectionState === "failed" || conexion.connectionState === "disconnected") {
+            actualizarEstadoCamaraEstudiante("Conexión con el maestro interrumpida. La cámara sigue activa mientras dure la prueba.");
+        }
+    };
+    try {
+        const lineasSDP = String(oferta.sdp).split(/\r?\n/).map((linea) => linea.trim());
+        if (!lineasSDP.includes("a=recvonly") || lineasSDP.some((linea) => linea === "a=sendonly" || linea === "a=sendrecv")) {
+            throw new Error("La conexión no es de solo recepción para el maestro.");
+        }
+        streamCamaraSistema.getVideoTracks().forEach((track) => conexion.addTrack(track, streamCamaraSistema));
+        await conexion.setRemoteDescription({ type: "offer", sdp: oferta.sdp });
+        const respuesta = await conexion.createAnswer();
+        await conexion.setLocalDescription(respuesta);
+        await esperarRecoleccionCandidatos(conexion);
+        if (sesionMonitoreoEstudiante !== estadoSesion || estadoSesion.ofertaIdProcesada !== ofertaId) return;
+        await estadoSesion.referencia.collection("respuestas").doc("estudiante").set({
+            ofertaId,
+            sdp: conexion.localDescription.sdp,
+            actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        estadoSesion.ofertaIdProcesando = null;
+        actualizarEstadoCamaraEstudiante("Conexión lista; el maestro responsable podrá ver tu cámara en vivo.");
+    } catch (error) {
+        estadoSesion.ofertaIdProcesando = null;
+        if (sesionMonitoreoEstudiante === estadoSesion) {
+            actualizarEstadoCamaraEstudiante(`No se pudo transmitir la cámara al maestro. ${error.message || error.code || ""}`);
+        }
+    }
+}
+
+async function eliminarSenalSiExiste(referencia) {
+    const documento = await referencia.get();
+    if (documento.exists) await referencia.delete();
+}
+
+async function cerrarSesionMonitoreoEstudiante() {
+    const sesion = sesionMonitoreoEstudiante;
+    if (!sesion) return;
+    sesionMonitoreoEstudiante = null;
+    clearInterval(sesion.heartbeat);
+    if (sesion.desuscribirOfertas) sesion.desuscribirOfertas();
+    if (sesion.conexion) sesion.conexion.close();
+    try {
+        await sesion.referencia.update({
+            estado: "finalizada",
+            actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        await Promise.all([
+            eliminarSenalSiExiste(sesion.referencia.collection("ofertas").doc("maestro")),
+            eliminarSenalSiExiste(sesion.referencia.collection("respuestas").doc("estudiante"))
+        ]);
+        await sesion.referencia.delete();
+    } catch (error) {
+        actualizarEstadoCamaraEstudiante(`La cámara se detuvo, pero no se pudo cerrar por completo la sesión en vivo. ${error.message || error.code || ""}`);
+        console.error("No se pudo cerrar la sesión de monitoreo en vivo.", error);
+    }
+}
+
+async function iniciarSesionMonitoreoEstudiante(examen) {
+    const usuario = firebaseAuth.currentUser;
+    if (!usuario || obtenerRolActual() !== "estudiante") {
+        throw new Error("La transmisión de cámara está disponible únicamente para estudiantes.");
+    }
+    const referencia = firebaseDb.collection("supervisionesEnVivo").doc();
+    const datosSesion = {
+        examenId: examen.id,
+        examenNombre: examen.nombre || "Prueba",
+        estudianteUid: usuario.uid,
+        estudianteNombre: nombreEstudiantePrueba,
+        maestroUid: examen.maestroUid,
+        estado: "activa",
+        actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    await referencia.set(datosSesion);
+
+    const estadoSesion = {
+        referencia,
+        conexion: null,
+        heartbeat: null,
+        desuscribirOfertas: null,
+        ofertaIdProcesada: null,
+        ofertaIdProcesando: null
+    };
+    sesionMonitoreoEstudiante = estadoSesion;
+    estadoSesion.desuscribirOfertas = referencia.collection("ofertas").doc("maestro").onSnapshot((documento) => {
+        if (documento.exists) responderOfertaDocente(estadoSesion, documento.data());
+    }, (error) => {
+        actualizarEstadoCamaraEstudiante(`No se pudo recibir la conexión del maestro. ${error.message || error.code || ""}`);
+    });
+    estadoSesion.heartbeat = setInterval(() => {
+        referencia.update({ actualizadoEn: firebase.firestore.FieldValue.serverTimestamp() }).catch((error) => {
+            actualizarEstadoCamaraEstudiante(`Se perdió la conexión de supervisión. ${error.message || error.code || ""}`);
+        });
+    }, 15000);
+}
+
+function crearTarjetaMonitoreo(sesion) {
+    const tarjeta = document.createElement("article");
+    tarjeta.className = "monitoreo-estudiante";
+    const titulo = document.createElement("h3");
+    titulo.textContent = sesion.estudianteNombre || "Estudiante";
+    const detalle = document.createElement("p");
+    detalle.textContent = sesion.examenNombre || "Prueba";
+    const video = document.createElement("video");
+    video.autoplay = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.setAttribute("aria-label", `Cámara en vivo de ${titulo.textContent}`);
+    const estado = document.createElement("p");
+    estado.setAttribute("role", "status");
+    estado.textContent = "Conectando con el estudiante...";
+    tarjeta.append(titulo, detalle, video, estado);
+    return { tarjeta, video, estado };
+}
+
+function cerrarConexionMonitoreo(idSesion, conexionDocente) {
+    if (conexionDocente.desuscribirRespuesta) conexionDocente.desuscribirRespuesta();
+    conexionDocente.pc.close();
+    conexionDocente.tarjeta.remove();
+    conexionesMonitoreoDocente.delete(idSesion);
+}
+
+async function conectarCamaraEstudiante(idSesion, sesion, contenedor, token) {
+    const tarjeta = crearTarjetaMonitoreo(sesion);
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS_MONITOREO });
+    pc.addTransceiver("video", { direction: "recvonly" });
+    const referencia = firebaseDb.collection("supervisionesEnVivo").doc(idSesion);
+    const conexionDocente = { pc, referencia, tarjeta: tarjeta.tarjeta, desuscribirRespuesta: null, respuestaProcesada: false };
+    conexionesMonitoreoDocente.set(idSesion, conexionDocente);
+    contenedor.appendChild(tarjeta.tarjeta);
+    pc.ontrack = (evento) => {
+        if (evento.streams[0]) tarjeta.video.srcObject = evento.streams[0];
+        tarjeta.estado.textContent = "Cámara conectada en vivo.";
+    };
+    pc.onconnectionstatechange = () => {
+        if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+            tarjeta.estado.textContent = "Conexión interrumpida. Actualiza la vista para volver a intentar.";
+        }
+    };
+    const referenciaRespuesta = referencia.collection("respuestas").doc("estudiante");
+    conexionDocente.desuscribirRespuesta = referenciaRespuesta.onSnapshot((documento) => {
+        if (!documento.exists || !conexionDocente.ofertaId || conexionDocente.respuestaProcesada || conexionesMonitoreoDocente.get(idSesion) !== conexionDocente) return;
+        const respuesta = documento.data();
+        if (respuesta.ofertaId !== conexionDocente.ofertaId || pc.remoteDescription) return;
+        conexionDocente.respuestaProcesada = true;
+        pc.setRemoteDescription({ type: "answer", sdp: respuesta.sdp }).catch((error) => {
+            tarjeta.estado.textContent = `No se pudo conectar con la cámara. ${error.message || error.code || ""}`;
+        });
+    }, (error) => {
+        tarjeta.estado.textContent = `No se pudo recibir la cámara del estudiante. ${error.message || error.code || ""}`;
+    });
+
+    try {
+        if (token !== tokenMonitoreoDocente || conexionesMonitoreoDocente.get(idSesion) !== conexionDocente) return;
+        const oferta = await pc.createOffer();
+        await pc.setLocalDescription(oferta);
+        await esperarRecoleccionCandidatos(pc);
+        if (token !== tokenMonitoreoDocente || conexionesMonitoreoDocente.get(idSesion) !== conexionDocente) return;
+        const ofertaId = firebaseDb.collection("supervisionesEnVivo").doc().id;
+        conexionDocente.ofertaId = ofertaId;
+        await referencia.collection("ofertas").doc("maestro").set({
+            ofertaId,
+            sdp: pc.localDescription.sdp,
+            actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    } catch (error) {
+        tarjeta.estado.textContent = `No se pudo abrir la cámara. ${error.message || error.code || ""}`;
+    }
+}
+
+function cargarMonitoreoEnVivo() {
+    const estado = document.getElementById("estado-monitoreo");
+    const contenedor = document.getElementById("lista-monitoreo");
+    if (!estado || !contenedor) return;
+    const correoDocente = String((firebaseAuth.currentUser && firebaseAuth.currentUser.email) || "").toLowerCase();
+    if (obtenerRolActual() !== "maestro" || !/^[^@\s]+@tesa\.edu\.ec$/.test(correoDocente)) {
+        estado.hidden = false;
+        estado.classList.add("estado-error");
+        estado.textContent = "Esta vista está disponible únicamente para maestros.";
+        return;
+    }
+    if (!firebaseAuth.currentUser) {
+        estado.hidden = false;
+        estado.textContent = "Inicia sesión como maestro para consultar las pruebas activas.";
+        return;
+    }
+    if (typeof window.RTCPeerConnection !== "function") {
+        estado.hidden = false;
+        estado.classList.add("estado-error");
+        estado.textContent = "Este navegador no admite conexiones de video en vivo.";
+        return;
+    }
+    if (suscripcionMonitoreoDocente) detenerMonitoreoEnVivo();
+    const token = ++tokenMonitoreoDocente;
+    estado.hidden = false;
+    estado.classList.remove("estado-error");
+    estado.textContent = "Buscando estudiantes con una prueba activa...";
+    suscripcionMonitoreoDocente = firebaseDb.collection("supervisionesEnVivo")
+        .where("maestroUid", "==", firebaseAuth.currentUser.uid)
+        .onSnapshot((snapshot) => {
+            if (token !== tokenMonitoreoDocente) return;
+            const recientes = new Map();
+            const limite = Date.now() - 45000;
+            snapshot.docs.forEach((documento) => {
+                const sesion = documento.data();
+                const actualizado = sesion.actualizadoEn && sesion.actualizadoEn.toMillis
+                    ? sesion.actualizadoEn.toMillis()
+                    : 0;
+                if (sesion.estado === "activa" && actualizado >= limite) recientes.set(documento.id, sesion);
+            });
+            conexionesMonitoreoDocente.forEach((conexion, idSesion) => {
+                if (!recientes.has(idSesion)) cerrarConexionMonitoreo(idSesion, conexion);
+            });
+            recientes.forEach((sesion, idSesion) => {
+                if (!conexionesMonitoreoDocente.has(idSesion)) conectarCamaraEstudiante(idSesion, sesion, contenedor, token);
+            });
+            estado.hidden = false;
+            estado.classList.remove("estado-error");
+            estado.textContent = recientes.size
+                ? `${recientes.size} estudiante(s) con prueba activa. Las transmisiones solo se reciben en esta cuenta docente.`
+                : "No hay estudiantes con una prueba activa en este momento.";
+        }, (error) => {
+            detenerMonitoreoEnVivo();
+            estado.hidden = false;
+            estado.classList.add("estado-error");
+            estado.textContent = `No se pudieron cargar las cámaras. ${error.message || error.code || ""}`;
+        });
+}
+
+function detenerMonitoreoEnVivo() {
+    tokenMonitoreoDocente += 1;
+    if (suscripcionMonitoreoDocente) suscripcionMonitoreoDocente();
+    suscripcionMonitoreoDocente = null;
+    Array.from(conexionesMonitoreoDocente.entries()).forEach(([idSesion, conexion]) => {
+        cerrarConexionMonitoreo(idSesion, conexion);
+    });
+}
+
 async function iniciarPruebaSistema() {
     const estado = document.getElementById("camera-sistema-status");
     try {
+        if (obtenerRolActual() !== "estudiante") {
+            throw new Error("Solo un estudiante puede iniciar esta prueba.");
+        }
+        if (typeof window.RTCPeerConnection !== "function") {
+            throw new Error("Este navegador no admite la transmisión segura de cámara en vivo.");
+        }
         if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             throw new Error("La cámara requiere abrir el sitio mediante HTTPS o localhost.");
         }
         streamCamaraSistema = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         document.getElementById("camera-sistema").srcObject = streamCamaraSistema;
-        estado.textContent = "Cámara activa para supervisión local. No se graba ni se guarda video.";
+        estado.textContent = "Cámara activa. El maestro responsable podrá verla en vivo mientras dure la prueba.";
         establecerChipCamara("activa", "Activa");
-        document.getElementById("estado-supervision").textContent = "Supervisión activa; no se almacena video.";
+        document.getElementById("estado-supervision").textContent = "Transmisión en vivo al maestro responsable; no se almacena video.";
         inicioPruebaMilisegundos = Date.now();
-        registrarEventoSupervision("camara_activada", "El estudiante autorizó la cámara; la vista permanece local y no se graba.");
+        registrarEventoSupervision("camara_activada", "El estudiante autorizó la cámara para transmisión en vivo al maestro responsable; no se graba.");
         iniciarMonitoreoCamara();
+        await iniciarSesionMonitoreoEstudiante(examenPruebaEnVentana);
         pruebaIniciada = true;
         document.getElementById("finalizar-prueba").disabled = false;
         iniciarTemporizadorPrueba(examenPruebaEnVentana);
     } catch (error) {
-        detenerCamaraSistema();
+        await detenerCamaraSistema();
         establecerChipCamara("error", "Sin cámara");
         estado.textContent = `No se inició la prueba. ${error.message || error.name || ""}`;
         document.getElementById("estado-supervision").textContent = "No se activó la cámara; la prueba no comenzó.";
@@ -1626,6 +2012,31 @@ function iniciarTemporizadorPrueba(examen) {
 
 async function finalizarPruebaSistema(motivoEntrega = "entrega_manual") {
     if (!pruebaIniciada || entregaPruebaEnCurso) return;
+    if (motivoEntrega === "entrega_manual") {
+        const faltantes = indicesPreguntasSinRespuesta();
+        if (faltantes.length) {
+            const aviso = document.getElementById("error-respuestas-prueba");
+            if (aviso) {
+                aviso.hidden = false;
+                aviso.textContent = mensajePreguntasSinRespuesta(faltantes.length);
+            }
+            const resultadoAnterior = document.getElementById("resultado-prueba");
+            if (resultadoAnterior) {
+                resultadoAnterior.hidden = true;
+                resultadoAnterior.textContent = "";
+            }
+            indicePreguntaPruebaActual = faltantes[0];
+            const examenActual = examenPruebaEnVentana || obtenerExamenes()[indicePruebaActiva];
+            renderizarPreguntasPrueba(preguntasPruebaSistema, examenActual ? examenActual.formato : "opcion-multiple");
+            document.querySelector("#preguntas-prueba textarea, #preguntas-prueba input[type=radio]")?.focus();
+            return;
+        }
+    }
+    const avisoRespuestas = document.getElementById("error-respuestas-prueba");
+    if (avisoRespuestas) {
+        avisoRespuestas.hidden = true;
+        avisoRespuestas.textContent = "";
+    }
     entregaPruebaEnCurso = true;
     clearInterval(temporizadorPrueba);
     temporizadorPrueba = null;
@@ -1656,7 +2067,7 @@ async function finalizarPruebaSistema(motivoEntrega = "entrega_manual") {
         if (typeof firebaseDb === "undefined" || !firebaseAuth.currentUser) {
             throw new Error("No se pudo verificar tu sesión. Ingresa nuevamente antes de entregar la prueba.");
         }
-        detenerCamaraSistema();
+        await detenerCamaraSistema();
         const calificacion = contieneComplexivas
             ? null
             : Number((totalOpcionMultiple ? (correctas / totalOpcionMultiple) * 10 : 0).toFixed(2));
@@ -1716,6 +2127,13 @@ async function finalizarPruebaSistema(motivoEntrega = "entrega_manual") {
         const nota = contieneComplexivas
             ? "Calificación: Pendiente de revisión"
             : `Calificación: ${calificacion.toFixed(2)} / 10`;
+        const mensajeEntrega = `Prueba enviada correctamente. ${nota}.`;
+        try {
+            sessionStorage.setItem("resultadoPruebaPendiente", mensajeEntrega);
+        } catch (error) {
+            console.error("No se pudo guardar el aviso de calificación para el menú principal.", error);
+        }
+        if (typeof window.notificar === "function") window.notificar(mensajeEntrega, "ok", 5000);
         resultado.innerHTML = `
             <h2>Resultado de la prueba</h2>
             <strong class="resultado-nota">${nota}</strong>
@@ -1727,21 +2145,21 @@ async function finalizarPruebaSistema(motivoEntrega = "entrega_manual") {
                 <p><span>Cambios de pestaña</span><strong>${cambiosPestana}</strong></p>
                 <p><span>Variaciones detectadas</span><strong>${movimientosCamara}</strong></p>
             </div>
-            <p id="resultado-redireccion">Volviendo a la página inicial en 8 segundos...</p>
+            <p id="resultado-redireccion">Volviendo al menú principal en 3 segundos...</p>
         `;
 
-        let segundosRestantes = 8;
+        let segundosRestantes = 3;
         const cuentaRegresiva = setInterval(() => {
             segundosRestantes -= 1;
             const indicador = document.getElementById("resultado-redireccion");
             if (indicador) {
                 indicador.textContent = segundosRestantes > 0
-                    ? `Volviendo a la página inicial en ${segundosRestantes} segundos...`
-                    : "Volviendo a la página inicial...";
+                    ? `Volviendo al menú principal en ${segundosRestantes} segundos...`
+                    : "Volviendo al menú principal...";
             }
             if (segundosRestantes <= 0) {
                 clearInterval(cuentaRegresiva);
-                window.location.href = "index.html";
+                window.location.href = "dashboard.html#inicio";
             }
         }, 1000);
     } catch (error) {
@@ -1756,9 +2174,9 @@ function detenerCamaraSistema() {
     monitoreoCamara = null;
     const video = document.getElementById("camera-sistema");
     if (video) video.srcObject = null;
-    if (!streamCamaraSistema) return;
-    streamCamaraSistema.getTracks().forEach((track) => track.stop());
+    if (streamCamaraSistema) streamCamaraSistema.getTracks().forEach((track) => track.stop());
     streamCamaraSistema = null;
+    return cerrarSesionMonitoreoEstudiante();
 }
 
 function iniciarMonitoreoCamara() {
@@ -1848,6 +2266,11 @@ if (window.location.pathname.includes("dashboard.html") || window.location.pathn
     const cuentaRol = document.getElementById("cuenta-rol");
     if (rolElemento) rolElemento.textContent = rolActual === "admin" ? "Administrador" : rolActual === "maestro" ? "Maestro" : "Estudiante";
     if (cuentaCorreo) cuentaCorreo.textContent = sesion.correo || "Cuenta institucional";
+    const mensajeResultadoPrueba = sessionStorage.getItem("resultadoPruebaPendiente");
+    if (mensajeResultadoPrueba) {
+        sessionStorage.removeItem("resultadoPruebaPendiente");
+        if (typeof window.notificar === "function") window.notificar(mensajeResultadoPrueba, "ok", 8000);
+    }
     actualizarAvataresPerfil();
     if (cuentaRol) cuentaRol.textContent = rolElemento ? rolElemento.textContent : "";
     if (vistaPrevia && sesion.rol === "admin" && !new URLSearchParams(window.location.search).has("vista")) vistaPrevia.hidden = false;
@@ -1908,6 +2331,11 @@ window.addEventListener("beforeunload", (event) => {
     if (document.body.classList.contains("pagina-prueba") && pruebaIniciada) {
         event.preventDefault();
         event.returnValue = "";
+    }
+});
+window.addEventListener("pagehide", () => {
+    if (document.body.classList.contains("pagina-prueba")) {
+        detenerCamaraSistema().catch((error) => console.error("No se pudo cerrar la cámara al salir de la prueba.", error));
     }
 });
 

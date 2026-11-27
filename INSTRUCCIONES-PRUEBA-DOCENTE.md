@@ -5,3 +5,5 @@ La aplicación autentica con Firebase Authentication y no contiene credenciales 
 Al primer ingreso la aplicación registra el rol docente a partir del dominio institucional. Puedes asignarle asignaturas desde la cuenta administradora en **Clases y maestros**. La cuenta debe eliminarse o cambiar su contraseña al terminar la revisión.
 
 La función **Activar alarmas** solicita permiso al navegador y programa avisos locales en ese dispositivo para exámenes con fecha de apertura. El navegador debe permanecer abierto; no equivale a notificaciones push del servidor.
+
+Durante una prueba, el estudiante debe aceptar el aviso de cámara para que el maestro propietario pueda abrir **Cámaras en vivo** desde el panel. El maestro solo recibe video: no transmite su cámara a los estudiantes. El video se envía en tiempo real entre los navegadores y no se graba ni se guarda. Para usar cámara, ambos equipos deben abrir el sitio mediante HTTPS y permitir conexiones WebRTC.

@@ -29,14 +29,32 @@ service cloud.firestore {
           && request.auth.token.email.matches("^[^@]+@tesa[.]edu[.]ec$"));
     }
 
-    function administrador() {
-      return correoAdminVerificado();
+    function docente() {
+      return autenticado()
+        && request.auth.token.email is string
+        && request.auth.token.email.matches("^[^@]+@tesa[.]edu[.]ec$");
     }
 
-    function propietarioDeExamen(examenId) {
+    function estudiante() {
       return autenticado()
-        && exists(/databases/$(database)/documents/examenes/$(examenId))
-        && get(/databases/$(database)/documents/examenes/$(examenId)).data.maestroUid == request.auth.uid;
+        && request.auth.token.email is string
+        && request.auth.token.email.matches("^[^@]+@estud[.]tesa[.]edu[.]ec$");
+    }
+
+    function supervisionDelDocente(sesionId) {
+      return docente()
+        && exists(/databases/$(database)/documents/supervisionesEnVivo/$(sesionId))
+        && get(/databases/$(database)/documents/supervisionesEnVivo/$(sesionId)).data.maestroUid == request.auth.uid;
+    }
+
+    function supervisionDelEstudiante(sesionId) {
+      return estudiante()
+        && exists(/databases/$(database)/documents/supervisionesEnVivo/$(sesionId))
+        && get(/databases/$(database)/documents/supervisionesEnVivo/$(sesionId)).data.estudianteUid == request.auth.uid;
+    }
+
+    function administrador() {
+      return correoAdminVerificado();
     }
 
     function perfilValido() {
@@ -91,7 +109,7 @@ service cloud.firestore {
     }
 
     match /resultados/{resultadoId} {
-      allow create: if autenticado()
+      allow create: if estudiante()
         && request.resource.data.keys().hasOnly([
           "estudianteUid", "estudianteCorreo", "nombreCompleto", "maestroUid", "maestroCorreo",
           "examenId", "examenNombre", "formato", "respuestasCorrectas", "totalPreguntas",
@@ -103,10 +121,20 @@ service cloud.firestore {
         && request.resource.data.estudianteCorreo == request.auth.token.email
         && request.resource.data.nombreCompleto
           == get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.nombreCompleto
-        && propietarioDeExamen(request.resource.data.examenId)
+        && request.resource.data.examenId is string
+        && exists(/databases/$(database)/documents/examenes/$(request.resource.data.examenId))
         && request.resource.data.maestroUid == get(/databases/$(database)/documents/examenes/$(request.resource.data.examenId)).data.maestroUid
         && request.resource.data.respuestas is list
         && request.resource.data.respuestasDetalle is list
+        && request.resource.data.totalPreguntas is int
+        && request.resource.data.totalPreguntas > 0
+        && request.resource.data.respuestas.size() == request.resource.data.totalPreguntas
+        && request.resource.data.respuestasDetalle.size() == request.resource.data.totalPreguntas
+        && request.resource.data.respuestasCorrectas is int
+        && request.resource.data.respuestasCorrectas >= 0
+        && request.resource.data.respuestasCorrectas <= request.resource.data.totalPreguntas
+        && (request.resource.data.motivoEntrega != "entrega_manual"
+          || !request.resource.data.respuestas.hasAny([""]))
         && request.resource.data.eventosSupervision is list
         && request.resource.data.eventosOmitidos is int
         && request.resource.data.duracionSegundos is int
@@ -131,6 +159,59 @@ service cloud.firestore {
           && request.resource.data.estado == "calificada"
           && request.resource.data.calificadaPorUid == request.auth.uid
           && request.resource.data.fechaCalificacion == request.time);
+    }
+
+    match /supervisionesEnVivo/{sesionId} {
+      allow create: if estudiante()
+        && request.resource.data.keys().hasOnly([
+          "examenId", "examenNombre", "estudianteUid", "estudianteNombre",
+          "maestroUid", "estado", "actualizadoEn"
+        ])
+        && request.resource.data.examenId is string
+        && request.resource.data.examenNombre is string
+        && request.resource.data.examenNombre.size() <= 120
+        && request.resource.data.estudianteUid == request.auth.uid
+        && request.resource.data.estudianteNombre is string
+        && request.resource.data.estudianteNombre.size() <= 120
+        && request.resource.data.maestroUid is string
+        && request.resource.data.estado == "activa"
+        && request.resource.data.actualizadoEn == request.time
+        && exists(/databases/$(database)/documents/examenes/$(request.resource.data.examenId))
+        && get(/databases/$(database)/documents/examenes/$(request.resource.data.examenId)).data.maestroUid
+          == request.resource.data.maestroUid;
+      allow read: if (docente() && resource.data.maestroUid == request.auth.uid)
+        || (estudiante() && resource.data.estudianteUid == request.auth.uid);
+      allow update: if supervisionDelEstudiante(sesionId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["estado", "actualizadoEn"])
+        && request.resource.data.estado in ["activa", "finalizada"]
+        && request.resource.data.actualizadoEn == request.time;
+      allow delete: if supervisionDelEstudiante(sesionId);
+
+      match /ofertas/{ofertaId} {
+        allow get: if supervisionDelEstudiante(sesionId);
+        allow create, update: if supervisionDelDocente(sesionId)
+          && ofertaId == "maestro"
+          && request.resource.data.keys().hasOnly(["ofertaId", "sdp", "actualizadoEn"])
+          && request.resource.data.ofertaId is string
+          && request.resource.data.ofertaId.size() <= 100
+          && request.resource.data.sdp is string
+          && request.resource.data.sdp.size() <= 120000
+          && request.resource.data.actualizadoEn == request.time;
+        allow delete: if supervisionDelDocente(sesionId) || supervisionDelEstudiante(sesionId);
+      }
+
+      match /respuestas/{respuestaId} {
+        allow get: if supervisionDelDocente(sesionId) || supervisionDelEstudiante(sesionId);
+        allow create, update: if supervisionDelEstudiante(sesionId)
+          && respuestaId == "estudiante"
+          && request.resource.data.keys().hasOnly(["ofertaId", "sdp", "actualizadoEn"])
+          && request.resource.data.ofertaId is string
+          && request.resource.data.ofertaId.size() <= 100
+          && request.resource.data.sdp is string
+          && request.resource.data.sdp.size() <= 120000
+          && request.resource.data.actualizadoEn == request.time;
+        allow delete: if supervisionDelDocente(sesionId) || supervisionDelEstudiante(sesionId);
+      }
     }
 
     // ---------- Clases: el administrador asigna asignaturas a cada maestro ----------

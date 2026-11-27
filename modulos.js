@@ -8,7 +8,7 @@
 
     const TITULOS = {
         inicio: "Inicio", examenes: "Exámenes", calificaciones: "Mis calificaciones", clases: "Clases",
-        reportes: "Reportes", asistencia: "Asistencia", personas: "Personas", papelera: "Papelera"
+        reportes: "Reportes", monitoreo: "Cámaras en vivo", asistencia: "Asistencia", personas: "Personas", papelera: "Papelera"
     };
     const DIAS_PAPELERA = 30;
     let clasesCache = [];
@@ -19,6 +19,13 @@
 
     const $ = (id) => document.getElementById(id);
     const esc = (t) => escaparHtml(String(t == null ? "" : t));
+    const textoRequerido = (id, etiqueta, maximo, minimo) => {
+        const valor = $(id).value.trim();
+        if (!valor) throw new Error("Completa el campo «" + etiqueta + "».");
+        if (minimo && valor.length < minimo) throw new Error(etiqueta + " debe tener al menos " + minimo + " caracteres.");
+        if (valor.length > maximo) throw new Error(etiqueta + " no puede superar " + maximo + " caracteres.");
+        return valor;
+    };
     const rol = () => obtenerRolActual();
     const db = () => firebaseDb;
     const correoActual = () => String((firebaseAuth.currentUser && firebaseAuth.currentUser.email) || obtenerSesion().correo || "").toLowerCase();
@@ -67,6 +74,8 @@
     };
 
     function alEntrarVista(nombre) {
+        if (nombre === "monitoreo" && typeof cargarMonitoreoEnVivo === "function") cargarMonitoreoEnVivo();
+        else if (typeof detenerMonitoreoEnVivo === "function") detenerMonitoreoEnVivo();
         if (nombre === "calificaciones") cargarCalificaciones();
         if (nombre === "clases") cargarClases();
         if (nombre === "reportes") {
@@ -105,13 +114,14 @@
             calificaciones: ["Mis calificaciones", "Revisa tus notas y resultados", "calificaciones"],
             clases: [rol() === "admin" ? "Clases y maestros" : "Mis clases", rol() === "admin" ? "Asigna asignaturas y estudiantes a cada maestro" : rol() === "maestro" ? "Asignaturas que te asignó el administrador" : "Asignaturas en las que estás inscrito", "clases"],
             reportes: ["Reportes", "Entregas, supervisión y calificaciones", "reportes"],
+            monitoreo: ["Cámaras en vivo", "Supervisa las cámaras de estudiantes en pruebas activas", "monitoreo"],
             asistencia: ["Asistencia", "Quién ingresó hoy al sistema", "asistencia"],
             personas: ["Personas", "Registra estudiantes y maestros", "personas"],
             papelera: ["Papelera", "Recupera exámenes eliminados (30 días)", "papelera"]
         };
         const porRol = {
             estudiante: ["examenes", "calificaciones", "clases"],
-            maestro: ["nuevo", "examenes", "reportes", "clases", "asistencia", "papelera"],
+            maestro: ["nuevo", "examenes", "reportes", "monitoreo", "clases", "asistencia", "papelera"],
             admin: ["clases", "asistencia", "personas", "examenes", "reportes", "papelera"]
         };
         contenedor.innerHTML = "";
@@ -273,7 +283,7 @@
             } else if (accion === "guardar-estudiantes") {
                 const texto = tarjeta.querySelector('textarea[data-campo="estudiantes"]').value;
                 const correos = [...new Set(texto.split(/[\s,;]+/).map((x) => x.trim().toLowerCase()).filter(Boolean))];
-                const invalidos = correos.filter((c) => !c.endsWith("@estud.tesa.edu.ec"));
+                const invalidos = correos.filter((c) => !/^[^@\s]+@estud\.tesa\.edu\.ec$/.test(c));
                 if (invalidos.length) { notificar("Correos no válidos: " + invalidos.slice(0, 3).join(", "), "error"); return; }
                 await db().collection("clases").doc(clase.id).update({ estudiantes: correos });
                 notificar(correos.length + " estudiante(s) inscritos", "ok");
@@ -299,12 +309,17 @@
         evento.preventDefault();
         if (rol() !== "admin") return;
         const select = $("clase-maestro");
-        if (!select.value) { notificar("Selecciona un maestro.", "error"); return; }
+        if (!select.value || select.selectedIndex < 1 || !/^[^@\s]+@tesa\.edu\.ec$/i.test(select.value)) {
+            notificar("Selecciona un maestro con correo institucional válido.", "error");
+            return;
+        }
         try {
+            const ciclo = $("clase-ciclo").value.trim();
+            if (ciclo.length > 40) throw new Error("El ciclo o paralelo no puede superar 40 caracteres.");
             await db().collection("clases").add({
-                carrera: $("clase-carrera").value.trim(),
-                asignatura: $("clase-asignatura").value.trim(),
-                ciclo: $("clase-ciclo").value.trim(),
+                carrera: textoRequerido("clase-carrera", "La carrera", 80, 2),
+                asignatura: textoRequerido("clase-asignatura", "La asignatura", 80, 2),
+                ciclo,
                 maestroCorreo: select.value,
                 maestroNombre: select.options[select.selectedIndex].textContent,
                 estudiantes: [],
@@ -559,6 +574,7 @@
         await cargarClases();
         registrarAsistencia(usuario);
         if (rol() === "admin") iniciarResumenAdmin(usuario);
+        if (location.hash === "#monitoreo" && typeof cargarMonitoreoEnVivo === "function") cargarMonitoreoEnVivo();
     }
 
     iniciarInterfaz();

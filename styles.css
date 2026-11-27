@@ -423,6 +423,11 @@ button:disabled { cursor: not-allowed; opacity: .5; transform: none !important; 
 
 /* ---------- Reportes ---------- */
 .lista-reportes { display: grid; gap: 16px; }
+.lista-monitoreo { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.monitoreo-estudiante { display: grid; gap: 10px; padding: 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); }
+.monitoreo-estudiante h3 { font-size: 15px; font-weight: 800; }
+.monitoreo-estudiante p { font-size: 12.5px; color: var(--muted); }
+.monitoreo-estudiante video { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #02010a; border-radius: 12px; }
 .reporte-examen { padding: 20px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); }
 .reporte-examen > h3 { margin-bottom: 8px; font-size: 17px; font-weight: 800; }
 .reporte-intento { display: grid; grid-template-columns: minmax(200px, .8fr) minmax(200px, 1fr) minmax(260px, 1.2fr); align-items: start; gap: 16px; padding: 16px 0; border-top: 1px solid var(--border); }
