@@ -42,9 +42,10 @@ service cloud.firestore {
     }
 
     function supervisionDelDocente(sesionId) {
-      return docente()
-        && exists(/databases/$(database)/documents/supervisionesEnVivo/$(sesionId))
-        && get(/databases/$(database)/documents/supervisionesEnVivo/$(sesionId)).data.maestroUid == request.auth.uid;
+      return exists(/databases/$(database)/documents/supervisionesEnVivo/$(sesionId))
+        && (administrador()
+          || (docente()
+            && get(/databases/$(database)/documents/supervisionesEnVivo/$(sesionId)).data.maestroUid == request.auth.uid));
     }
 
     function supervisionDelEstudiante(sesionId) {
@@ -179,7 +180,8 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/examenes/$(request.resource.data.examenId))
         && get(/databases/$(database)/documents/examenes/$(request.resource.data.examenId)).data.maestroUid
           == request.resource.data.maestroUid;
-      allow read: if (docente() && resource.data.maestroUid == request.auth.uid)
+      allow read: if administrador()
+        || (docente() && resource.data.maestroUid == request.auth.uid)
         || (estudiante() && resource.data.estudianteUid == request.auth.uid);
       allow update: if supervisionDelEstudiante(sesionId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["estado", "actualizadoEn"])
@@ -189,11 +191,13 @@ service cloud.firestore {
 
       match /ofertas/{ofertaId} {
         allow get: if supervisionDelEstudiante(sesionId);
-        allow create, update: if supervisionDelDocente(sesionId)
-          && ofertaId == "maestro"
-          && request.resource.data.keys().hasOnly(["ofertaId", "sdp", "actualizadoEn"])
+        allow create, update: if ((ofertaId == "maestro" && supervisionDelDocente(sesionId))
+          || (ofertaId == "admin" && administrador()
+            && exists(/databases/$(database)/documents/supervisionesEnVivo/$(sesionId))))
+          && request.resource.data.keys().hasOnly(["ofertaId", "visorId", "sdp", "actualizadoEn"])
           && request.resource.data.ofertaId is string
           && request.resource.data.ofertaId.size() <= 100
+          && request.resource.data.visorId == ofertaId
           && request.resource.data.sdp is string
           && request.resource.data.sdp.size() <= 120000
           && request.resource.data.actualizadoEn == request.time;
@@ -203,10 +207,14 @@ service cloud.firestore {
       match /respuestas/{respuestaId} {
         allow get: if supervisionDelDocente(sesionId) || supervisionDelEstudiante(sesionId);
         allow create, update: if supervisionDelEstudiante(sesionId)
-          && respuestaId == "estudiante"
-          && request.resource.data.keys().hasOnly(["ofertaId", "sdp", "actualizadoEn"])
+          && respuestaId in ["maestro", "admin"]
+          && exists(/databases/$(database)/documents/supervisionesEnVivo/$(sesionId)/ofertas/$(respuestaId))
+          && request.resource.data.keys().hasOnly(["ofertaId", "visorId", "sdp", "actualizadoEn"])
           && request.resource.data.ofertaId is string
           && request.resource.data.ofertaId.size() <= 100
+          && request.resource.data.visorId == respuestaId
+          && get(/databases/$(database)/documents/supervisionesEnVivo/$(sesionId)/ofertas/$(respuestaId)).data.ofertaId
+            == request.resource.data.ofertaId
           && request.resource.data.sdp is string
           && request.resource.data.sdp.size() <= 120000
           && request.resource.data.actualizadoEn == request.time;

@@ -20,6 +20,7 @@ let ultimoEventoMovimiento = 0;
 let monitoreoCamara = null;
 let sesionMonitoreoEstudiante = null;
 let suscripcionMonitoreoDocente = null;
+let tokenMonitoreoDocente = 0;
 let conexionesMonitoreoDocente = new Map();
 const ICE_SERVERS_MONITOREO = [{ urls: "stun:stun.l.google.com:19302" }];
 const CORREO_ADMINISTRADOR = "christianandrango23.24@gmail.com";
@@ -1014,6 +1015,7 @@ async function guardarExamen(event) {
         examenes.push(nuevoExamen);
         localStorage.setItem("examenes", JSON.stringify(examenes));
         ocultarFormularioExamen();
+        notificar("Configuración guardada correctamente.", "ok");
         await cargarExamenes();
         if (document.getElementById("estado-examenes").hidden) {
             establecerEstadoExamenes("Examen guardado. Puedes descargarlo desde el botón de cada examen.");
@@ -1226,6 +1228,7 @@ async function guardarConfiguracionExamen(event) {
             await firebaseDb.collection("examenes").doc(examen.id).update(Object.assign({}, configuracion, { inicioManual: examen.inicioManual, iniciado: examen.iniciado }));
         }
 
+        notificar("Configuración guardada correctamente.", "ok");
         establecerEstadoExamenes("Configuración guardada correctamente.");
         await cargarReportesProfesor();
     } catch (error) {
@@ -1595,7 +1598,7 @@ function confirmarSupervision() {
         const aceptar = document.getElementById("modal-aceptar");
         const rechazar = document.getElementById("modal-rechazar");
         if (!modal || !aceptar || !rechazar) {
-            resolver(window.confirm("Antes de iniciar: el maestro responsable podrá ver tu cámara en tiempo real durante la prueba. No se grabará ni se guardará video y no recibirás video del maestro. ¿Aceptas y deseas comenzar?"));
+            resolver(window.confirm("Antes de iniciar: el maestro responsable y el administrador verificado podrán ver tu cámara en tiempo real durante la prueba. No se grabará ni se guardará video y no recibirás video de ellos. ¿Aceptas y deseas comenzar?"));
             return;
         }
         const cerrar = (valor) => {
@@ -1707,43 +1710,52 @@ function actualizarEstadoCamaraEstudiante(mensaje) {
 
 async function responderOfertaDocente(estadoSesion, oferta) {
     const ofertaId = oferta && oferta.ofertaId;
-    if (!ofertaId || !oferta.sdp || estadoSesion.ofertaIdProcesada === ofertaId || estadoSesion.ofertaIdProcesando === ofertaId) return;
-    estadoSesion.ofertaIdProcesando = ofertaId;
-    if (estadoSesion.conexion) estadoSesion.conexion.close();
+    const visorId = oferta && oferta.visorId;
+    if (!ofertaId || !oferta.sdp || !["maestro", "admin"].includes(visorId)
+        || estadoSesion.ofertasProcesadas.get(visorId) === ofertaId
+        || estadoSesion.ofertasProcesando.get(visorId) === ofertaId) return;
+    estadoSesion.ofertasProcesando.set(visorId, ofertaId);
+    const conexionAnterior = estadoSesion.conexiones.get(visorId);
+    if (conexionAnterior) conexionAnterior.close();
 
     const conexion = new RTCPeerConnection({ iceServers: ICE_SERVERS_MONITOREO });
-    estadoSesion.conexion = conexion;
-    estadoSesion.ofertaIdProcesada = ofertaId;
+    estadoSesion.conexiones.set(visorId, conexion);
+    estadoSesion.ofertasProcesadas.set(visorId, ofertaId);
     conexion.onconnectionstatechange = () => {
-        if (sesionMonitoreoEstudiante !== estadoSesion) return;
-        if (conexion.connectionState === "connected") {
-            actualizarEstadoCamaraEstudiante("Cámara transmitiéndose en vivo al maestro responsable.");
-        } else if (conexion.connectionState === "failed" || conexion.connectionState === "disconnected") {
-            actualizarEstadoCamaraEstudiante("Conexión con el maestro interrumpida. La cámara sigue activa mientras dure la prueba.");
+        if (sesionMonitoreoEstudiante !== estadoSesion || estadoSesion.conexiones.get(visorId) !== conexion) return;
+        if (conexion.connectionState === "connecting") {
+            actualizarEstadoCamaraEstudiante("Estableciendo conexión de video con un visor autorizado...");
+        } else if (conexion.connectionState === "connected") {
+            actualizarEstadoCamaraEstudiante("Cámara transmitiéndose en vivo a los visores autorizados.");
+        } else if (conexion.connectionState === "failed") {
+            actualizarEstadoCamaraEstudiante("No se pudo establecer la conexión de video. La red puede requerir un servidor TURN.");
+        } else if (conexion.connectionState === "disconnected") {
+            actualizarEstadoCamaraEstudiante("Se interrumpió una conexión de supervisión. La cámara sigue activa mientras dure la prueba.");
         }
     };
     try {
         const lineasSDP = String(oferta.sdp).split(/\r?\n/).map((linea) => linea.trim());
         if (!lineasSDP.includes("a=recvonly") || lineasSDP.some((linea) => linea === "a=sendonly" || linea === "a=sendrecv")) {
-            throw new Error("La conexión no es de solo recepción para el maestro.");
+            throw new Error("La conexión no es de solo recepción para el visor autorizado.");
         }
         streamCamaraSistema.getVideoTracks().forEach((track) => conexion.addTrack(track, streamCamaraSistema));
         await conexion.setRemoteDescription({ type: "offer", sdp: oferta.sdp });
         const respuesta = await conexion.createAnswer();
         await conexion.setLocalDescription(respuesta);
         await esperarRecoleccionCandidatos(conexion);
-        if (sesionMonitoreoEstudiante !== estadoSesion || estadoSesion.ofertaIdProcesada !== ofertaId) return;
-        await estadoSesion.referencia.collection("respuestas").doc("estudiante").set({
+        if (sesionMonitoreoEstudiante !== estadoSesion || estadoSesion.ofertasProcesadas.get(visorId) !== ofertaId) return;
+        await estadoSesion.referencia.collection("respuestas").doc(visorId).set({
             ofertaId,
+            visorId,
             sdp: conexion.localDescription.sdp,
             actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
         });
-        estadoSesion.ofertaIdProcesando = null;
-        actualizarEstadoCamaraEstudiante("Conexión lista; el maestro responsable podrá ver tu cámara en vivo.");
+        estadoSesion.ofertasProcesando.delete(visorId);
+        actualizarEstadoCamaraEstudiante("Conexión lista; los visores autorizados podrán ver tu cámara en vivo.");
     } catch (error) {
-        estadoSesion.ofertaIdProcesando = null;
+        estadoSesion.ofertasProcesando.delete(visorId);
         if (sesionMonitoreoEstudiante === estadoSesion) {
-            actualizarEstadoCamaraEstudiante(`No se pudo transmitir la cámara al maestro. ${error.message || error.code || ""}`);
+            actualizarEstadoCamaraEstudiante(`No se pudo transmitir la cámara. ${error.message || error.code || ""}`);
         }
     }
 }
@@ -1758,17 +1770,19 @@ async function cerrarSesionMonitoreoEstudiante() {
     if (!sesion) return;
     sesionMonitoreoEstudiante = null;
     clearInterval(sesion.heartbeat);
-    if (sesion.desuscribirOfertas) sesion.desuscribirOfertas();
-    if (sesion.conexion) sesion.conexion.close();
+    sesion.desuscribirOfertas.forEach((desuscribir) => desuscribir());
+    sesion.conexiones.forEach((conexion) => conexion.close());
     try {
         await sesion.referencia.update({
             estado: "finalizada",
             actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
         });
-        await Promise.all([
-            eliminarSenalSiExiste(sesion.referencia.collection("ofertas").doc("maestro")),
-            eliminarSenalSiExiste(sesion.referencia.collection("respuestas").doc("estudiante"))
-        ]);
+        await Promise.all(["maestro", "admin"].map((visorId) =>
+            Promise.all([
+                eliminarSenalSiExiste(sesion.referencia.collection("ofertas").doc(visorId)),
+                eliminarSenalSiExiste(sesion.referencia.collection("respuestas").doc(visorId))
+            ])
+        ));
         await sesion.referencia.delete();
     } catch (error) {
         actualizarEstadoCamaraEstudiante(`La cámara se detuvo, pero no se pudo cerrar por completo la sesión en vivo. ${error.message || error.code || ""}`);
@@ -1795,18 +1809,28 @@ async function iniciarSesionMonitoreoEstudiante(examen) {
 
     const estadoSesion = {
         referencia,
-        conexion: null,
+        conexiones: new Map(),
         heartbeat: null,
-        desuscribirOfertas: null,
-        ofertaIdProcesada: null,
-        ofertaIdProcesando: null
+        desuscribirOfertas: [],
+        ofertasProcesadas: new Map(),
+        ofertasProcesando: new Map()
     };
     sesionMonitoreoEstudiante = estadoSesion;
-    estadoSesion.desuscribirOfertas = referencia.collection("ofertas").doc("maestro").onSnapshot((documento) => {
-        if (documento.exists) responderOfertaDocente(estadoSesion, documento.data());
-    }, (error) => {
-        actualizarEstadoCamaraEstudiante(`No se pudo recibir la conexión del maestro. ${error.message || error.code || ""}`);
-    });
+    estadoSesion.desuscribirOfertas = ["maestro", "admin"].map((visorId) =>
+        referencia.collection("ofertas").doc(visorId).onSnapshot((documento) => {
+            if (documento.exists) {
+                responderOfertaDocente(estadoSesion, { ...documento.data(), visorId });
+            } else {
+                const conexion = estadoSesion.conexiones.get(visorId);
+                if (conexion) conexion.close();
+                estadoSesion.conexiones.delete(visorId);
+                estadoSesion.ofertasProcesadas.delete(visorId);
+                estadoSesion.ofertasProcesando.delete(visorId);
+            }
+        }, (error) => {
+            actualizarEstadoCamaraEstudiante(`No se pudo recibir una conexión de supervisión. ${error.message || error.code || ""}`);
+        })
+    );
     estadoSesion.heartbeat = setInterval(() => {
         referencia.update({ actualizadoEn: firebase.firestore.FieldValue.serverTimestamp() }).catch((error) => {
             actualizarEstadoCamaraEstudiante(`Se perdió la conexión de supervisión. ${error.message || error.code || ""}`);
@@ -1828,7 +1852,7 @@ function crearTarjetaMonitoreo(sesion) {
     video.setAttribute("aria-label", `Cámara en vivo de ${titulo.textContent}`);
     const estado = document.createElement("p");
     estado.setAttribute("role", "status");
-    estado.textContent = "Conectando con el estudiante...";
+    estado.textContent = "Preparando conexión con el estudiante...";
     tarjeta.append(titulo, detalle, video, estado);
     return { tarjeta, video, estado };
 }
@@ -1838,31 +1862,48 @@ function cerrarConexionMonitoreo(idSesion, conexionDocente) {
     conexionDocente.pc.close();
     conexionDocente.tarjeta.remove();
     conexionesMonitoreoDocente.delete(idSesion);
+    Promise.all([
+        eliminarSenalSiExiste(conexionDocente.referencia.collection("ofertas").doc(conexionDocente.visorId)),
+        eliminarSenalSiExiste(conexionDocente.referencia.collection("respuestas").doc(conexionDocente.visorId))
+    ]).catch((error) => console.error("No se pudo limpiar la señalización de la cámara.", error));
 }
 
-async function conectarCamaraEstudiante(idSesion, sesion, contenedor, token) {
+async function conectarCamaraEstudiante(idSesion, sesion, contenedor, token, visorId) {
     const tarjeta = crearTarjetaMonitoreo(sesion);
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS_MONITOREO });
     pc.addTransceiver("video", { direction: "recvonly" });
     const referencia = firebaseDb.collection("supervisionesEnVivo").doc(idSesion);
-    const conexionDocente = { pc, referencia, tarjeta: tarjeta.tarjeta, desuscribirRespuesta: null, respuestaProcesada: false };
+    const conexionDocente = { pc, referencia, tarjeta: tarjeta.tarjeta, visorId, desuscribirRespuesta: null, respuestaProcesada: false };
     conexionesMonitoreoDocente.set(idSesion, conexionDocente);
     contenedor.appendChild(tarjeta.tarjeta);
     pc.ontrack = (evento) => {
-        if (evento.streams[0]) tarjeta.video.srcObject = evento.streams[0];
-        tarjeta.estado.textContent = "Cámara conectada en vivo.";
+        if (!evento.streams[0]) return;
+        tarjeta.video.srcObject = evento.streams[0];
+        tarjeta.video.play().then(() => {
+            tarjeta.estado.textContent = "Cámara conectada en vivo.";
+        }).catch((error) => {
+            console.warn("El navegador bloqueó la reproducción de la cámara remota.", error);
+            tarjeta.estado.textContent = "Video recibido, pero el navegador bloqueó su reproducción. Haz clic sobre el video para iniciarla.";
+        });
     };
     pc.onconnectionstatechange = () => {
-        if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
+        if (pc.connectionState === "connecting") {
+            tarjeta.estado.textContent = "Buscando una ruta de video...";
+        } else if (pc.connectionState === "connected") {
+            tarjeta.estado.textContent = "Conexión establecida; esperando el video...";
+        } else if (pc.connectionState === "failed") {
+            tarjeta.estado.textContent = "No se pudo conectar. Esta red puede requerir un servidor TURN.";
+        } else if (pc.connectionState === "disconnected") {
             tarjeta.estado.textContent = "Conexión interrumpida. Actualiza la vista para volver a intentar.";
         }
     };
-    const referenciaRespuesta = referencia.collection("respuestas").doc("estudiante");
+    const referenciaRespuesta = referencia.collection("respuestas").doc(visorId);
     conexionDocente.desuscribirRespuesta = referenciaRespuesta.onSnapshot((documento) => {
         if (!documento.exists || !conexionDocente.ofertaId || conexionDocente.respuestaProcesada || conexionesMonitoreoDocente.get(idSesion) !== conexionDocente) return;
         const respuesta = documento.data();
-        if (respuesta.ofertaId !== conexionDocente.ofertaId || pc.remoteDescription) return;
+        if (respuesta.ofertaId !== conexionDocente.ofertaId || respuesta.visorId !== visorId || pc.remoteDescription) return;
         conexionDocente.respuestaProcesada = true;
+        tarjeta.estado.textContent = "Respuesta recibida; estableciendo la conexión de video...";
         pc.setRemoteDescription({ type: "answer", sdp: respuesta.sdp }).catch((error) => {
             tarjeta.estado.textContent = `No se pudo conectar con la cámara. ${error.message || error.code || ""}`;
         });
@@ -1878,11 +1919,13 @@ async function conectarCamaraEstudiante(idSesion, sesion, contenedor, token) {
         if (token !== tokenMonitoreoDocente || conexionesMonitoreoDocente.get(idSesion) !== conexionDocente) return;
         const ofertaId = firebaseDb.collection("supervisionesEnVivo").doc().id;
         conexionDocente.ofertaId = ofertaId;
-        await referencia.collection("ofertas").doc("maestro").set({
+        await referencia.collection("ofertas").doc(visorId).set({
             ofertaId,
+            visorId,
             sdp: pc.localDescription.sdp,
             actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
         });
+        tarjeta.estado.textContent = "Solicitud enviada; esperando respuesta del estudiante...";
     } catch (error) {
         tarjeta.estado.textContent = `No se pudo abrir la cámara. ${error.message || error.code || ""}`;
     }
@@ -1892,16 +1935,22 @@ function cargarMonitoreoEnVivo() {
     const estado = document.getElementById("estado-monitoreo");
     const contenedor = document.getElementById("lista-monitoreo");
     if (!estado || !contenedor) return;
-    const correoDocente = String((firebaseAuth.currentUser && firebaseAuth.currentUser.email) || "").toLowerCase();
-    if (obtenerRolActual() !== "maestro" || !/^[^@\s]+@tesa\.edu\.ec$/.test(correoDocente)) {
+    const usuario = firebaseAuth.currentUser;
+    if (!usuario) {
         estado.hidden = false;
-        estado.classList.add("estado-error");
-        estado.textContent = "Esta vista está disponible únicamente para maestros.";
+        estado.textContent = "Inicia sesión como maestro o administrador para consultar las pruebas activas.";
         return;
     }
-    if (!firebaseAuth.currentUser) {
+    const correo = String(usuario.email || "").toLowerCase();
+    const administradorVerificado = obtenerRolActual() === "admin"
+        && correo === CORREO_ADMINISTRADOR
+        && usuario.emailVerified;
+    const maestroAutorizado = obtenerRolActual() === "maestro"
+        && /^[^@\s]+@tesa\.edu\.ec$/.test(correo);
+    if (!administradorVerificado && !maestroAutorizado) {
         estado.hidden = false;
-        estado.textContent = "Inicia sesión como maestro para consultar las pruebas activas.";
+        estado.classList.add("estado-error");
+        estado.textContent = "Esta vista está disponible únicamente para maestros y para el administrador verificado.";
         return;
     }
     if (typeof window.RTCPeerConnection !== "function") {
@@ -1915,36 +1964,40 @@ function cargarMonitoreoEnVivo() {
     estado.hidden = false;
     estado.classList.remove("estado-error");
     estado.textContent = "Buscando estudiantes con una prueba activa...";
-    suscripcionMonitoreoDocente = firebaseDb.collection("supervisionesEnVivo")
-        .where("maestroUid", "==", firebaseAuth.currentUser.uid)
-        .onSnapshot((snapshot) => {
-            if (token !== tokenMonitoreoDocente) return;
-            const recientes = new Map();
-            const limite = Date.now() - 45000;
-            snapshot.docs.forEach((documento) => {
-                const sesion = documento.data();
-                const actualizado = sesion.actualizadoEn && sesion.actualizadoEn.toMillis
-                    ? sesion.actualizadoEn.toMillis()
-                    : 0;
-                if (sesion.estado === "activa" && actualizado >= limite) recientes.set(documento.id, sesion);
-            });
-            conexionesMonitoreoDocente.forEach((conexion, idSesion) => {
-                if (!recientes.has(idSesion)) cerrarConexionMonitoreo(idSesion, conexion);
-            });
-            recientes.forEach((sesion, idSesion) => {
-                if (!conexionesMonitoreoDocente.has(idSesion)) conectarCamaraEstudiante(idSesion, sesion, contenedor, token);
-            });
-            estado.hidden = false;
-            estado.classList.remove("estado-error");
-            estado.textContent = recientes.size
-                ? `${recientes.size} estudiante(s) con prueba activa. Las transmisiones solo se reciben en esta cuenta docente.`
-                : "No hay estudiantes con una prueba activa en este momento.";
-        }, (error) => {
-            detenerMonitoreoEnVivo();
-            estado.hidden = false;
-            estado.classList.add("estado-error");
-            estado.textContent = `No se pudieron cargar las cámaras. ${error.message || error.code || ""}`;
+    const consultaSesiones = firebaseDb.collection("supervisionesEnVivo");
+    const consultaAutorizada = administradorVerificado
+        ? consultaSesiones
+        : consultaSesiones.where("maestroUid", "==", usuario.uid);
+    suscripcionMonitoreoDocente = consultaAutorizada.onSnapshot((snapshot) => {
+        if (token !== tokenMonitoreoDocente) return;
+        const recientes = new Map();
+        const limite = Date.now() - 45000;
+        snapshot.docs.forEach((documento) => {
+            const sesion = documento.data();
+            const actualizado = sesion.actualizadoEn && sesion.actualizadoEn.toMillis
+                ? sesion.actualizadoEn.toMillis()
+                : 0;
+            if (sesion.estado === "activa" && actualizado >= limite) recientes.set(documento.id, sesion);
         });
+        conexionesMonitoreoDocente.forEach((conexion, idSesion) => {
+            if (!recientes.has(idSesion)) cerrarConexionMonitoreo(idSesion, conexion);
+        });
+        recientes.forEach((sesion, idSesion) => {
+            if (!conexionesMonitoreoDocente.has(idSesion)) {
+                conectarCamaraEstudiante(idSesion, sesion, contenedor, token, administradorVerificado ? "admin" : "maestro");
+            }
+        });
+        estado.hidden = false;
+        estado.classList.remove("estado-error");
+        estado.textContent = recientes.size
+            ? `${recientes.size} estudiante(s) con prueba activa. El video solo se recibe en esta cuenta autorizada.`
+            : "No hay estudiantes con una prueba activa en este momento.";
+    }, (error) => {
+        detenerMonitoreoEnVivo();
+        estado.hidden = false;
+        estado.classList.add("estado-error");
+        estado.textContent = `No se pudieron cargar las cámaras. ${error.message || error.code || ""}`;
+    });
 }
 
 function detenerMonitoreoEnVivo() {
@@ -1969,18 +2022,31 @@ async function iniciarPruebaSistema() {
             throw new Error("La cámara requiere abrir el sitio mediante HTTPS o localhost.");
         }
         streamCamaraSistema = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        document.getElementById("camera-sistema").srcObject = streamCamaraSistema;
-        estado.textContent = "Cámara activa. El maestro responsable podrá verla en vivo mientras dure la prueba.";
+        if (!streamCamaraSistema.getVideoTracks().some((track) => track.readyState === "live")) {
+            throw new Error("El navegador no entregó una transmisión de video activa.");
+        }
+        const video = document.getElementById("camera-sistema");
+        if (!video) throw new Error("No se encontró el reproductor de cámara de la prueba.");
+        video.srcObject = streamCamaraSistema;
+        let avisoVistaPrevia = "";
+        try {
+            await video.play();
+        } catch (error) {
+            console.warn("El navegador bloqueó la vista previa local de la cámara.", error);
+            avisoVistaPrevia = " La vista previa fue bloqueada, pero la cámara sigue activa.";
+        }
+        estado.textContent = `Cámara activa. El maestro responsable y el administrador verificado podrán verla en vivo mientras dure la prueba.${avisoVistaPrevia}`;
         establecerChipCamara("activa", "Activa");
-        document.getElementById("estado-supervision").textContent = "Transmisión en vivo al maestro responsable; no se almacena video.";
+        document.getElementById("estado-supervision").textContent = "Transmisión en vivo al maestro responsable y al administrador verificado; no se almacena video.";
         inicioPruebaMilisegundos = Date.now();
-        registrarEventoSupervision("camara_activada", "El estudiante autorizó la cámara para transmisión en vivo al maestro responsable; no se graba.");
+        registrarEventoSupervision("camara_activada", "El estudiante autorizó la cámara para transmisión en vivo al maestro responsable y al administrador verificado; no se graba.");
         iniciarMonitoreoCamara();
         await iniciarSesionMonitoreoEstudiante(examenPruebaEnVentana);
         pruebaIniciada = true;
         document.getElementById("finalizar-prueba").disabled = false;
         iniciarTemporizadorPrueba(examenPruebaEnVentana);
     } catch (error) {
+        console.error("No se pudo iniciar la cámara de la prueba.", error);
         await detenerCamaraSistema();
         establecerChipCamara("error", "Sin cámara");
         estado.textContent = `No se inició la prueba. ${error.message || error.name || ""}`;

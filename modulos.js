@@ -122,7 +122,7 @@
         const porRol = {
             estudiante: ["examenes", "calificaciones", "clases"],
             maestro: ["nuevo", "examenes", "reportes", "monitoreo", "clases", "asistencia", "papelera"],
-            admin: ["clases", "asistencia", "personas", "examenes", "reportes", "papelera"]
+            admin: ["clases", "asistencia", "personas", "examenes", "reportes", "monitoreo", "papelera"]
         };
         contenedor.innerHTML = "";
         (porRol[rol()] || porRol.estudiante).forEach((clave, i) => {

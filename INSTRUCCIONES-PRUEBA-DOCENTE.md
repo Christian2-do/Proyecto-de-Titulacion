@@ -6,4 +6,4 @@ Al primer ingreso la aplicación registra el rol docente a partir del dominio in
 
 La función **Activar alarmas** solicita permiso al navegador y programa avisos locales en ese dispositivo para exámenes con fecha de apertura. El navegador debe permanecer abierto; no equivale a notificaciones push del servidor.
 
-Durante una prueba, el estudiante debe aceptar el aviso de cámara para que el maestro propietario pueda abrir **Cámaras en vivo** desde el panel. El maestro solo recibe video: no transmite su cámara a los estudiantes. El video se envía en tiempo real entre los navegadores y no se graba ni se guarda. Para usar cámara, ambos equipos deben abrir el sitio mediante HTTPS y permitir conexiones WebRTC.
+Durante una prueba, el estudiante debe aceptar el aviso de cámara para que el maestro propietario y el administrador verificado puedan abrir **Cámaras en vivo** desde el panel. Solo ellos reciben video: no transmiten su cámara a los estudiantes. El video se envía en tiempo real entre los navegadores y no se graba ni se guarda. Para usar cámara, ambos equipos deben abrir el sitio mediante HTTPS y permitir conexiones WebRTC.
